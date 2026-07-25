@@ -1,0 +1,120 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Shopify session storage (required by @shopify/shopify-app-session-storage-prisma) ---
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+}
+
+// --- Our app's data, one row per installed shop ---
+model ShopSettings {
+  id            String    @id @default(cuid())
+  shop          String    @unique
+  companyName   String?
+  vatRegistered Boolean   @default(false)
+  vatNumber     String?
+  backfilledAt  DateTime? // set once the one-time historical order backfill has run
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Order {
+  id             String    @id @default(cuid())
+  shop           String
+  shopifyOrderId String
+  name           String
+  status         String?
+  paidAt         DateTime?
+  cancelledAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  email          String?
+  subtotal       Float     @default(0)
+  shipping       Float     @default(0)
+  taxes          Float     @default(0)
+  total          Float     @default(0)
+  refundedAmount Float     @default(0)
+  currency       String    @default("GBP")
+
+  lineItems OrderLineItem[]
+
+  @@unique([shop, shopifyOrderId])
+  @@index([shop])
+  @@index([shop, paidAt])
+}
+
+model OrderLineItem {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  sku     String?
+  name    String
+  qty     Int    @default(1)
+  price   Float  @default(0)
+  vendor  String?
+
+  @@index([orderId])
+}
+
+// --- AW supplier invoices, parsed client-side from PDF/pasted text ---
+model SupplierInvoice {
+  id                String    @id @default(cuid())
+  shop              String
+  docNumber         String
+  type              String // "invoice" | "refund"
+  date              DateTime?
+  originalInvoice   String?
+  paymentState      String?
+  deliveryCountry   String?
+  totalNet          Float?
+  shipping          Float?
+  charges           Float?
+  vat               Float?
+  total             Float?
+  outsideScopeOfTax Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+
+  lineItems SupplierInvoiceLineItem[]
+
+  @@unique([shop, docNumber])
+  @@index([shop])
+  @@index([shop, date])
+}
+
+model SupplierInvoiceLineItem {
+  id        String          @id @default(cuid())
+  invoiceId String
+  invoice   SupplierInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  code      String
+  desc      String
+  price     Float
+  qty       Int
+  amount    Float
+
+  @@index([invoiceId])
+}
