@@ -1,0 +1,24 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Build output
+build/
+dist/
+.cache/
+
+# Prisma
+prisma/dev.db
+prisma/dev.db-journal
+
+# Shopify CLI
+.shopify/
+
+# OS/editor
+.DS_Store
+*.swp

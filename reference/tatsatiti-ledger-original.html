@@ -1,0 +1,2239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tatsatiti Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --ink:#13322E;
+    --ink-2:#1E463F;
+    --paper:#F2F0E6;
+    --card:#FFFFFF;
+    --border:#DEDCC9;
+    --border-soft:#E9E7DA;
+    --accent:#A9781F;
+    --accent-soft:#F1E4C4;
+    --positive:#3C7A5D;
+    --positive-soft:#E1EEE5;
+    --negative:#B23A2E;
+    --negative-soft:#F6E2DF;
+    --text:#1B2420;
+    --text-muted:#6B7268;
+    --text-faint:#9BA098;
+    --radius:10px;
+    --shadow: 0 1px 2px rgba(19,50,46,0.06), 0 4px 16px rgba(19,50,46,0.05);
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body: 'Inter', -apple-system, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--text);
+    font-family:var(--font-body);
+    font-size:14px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{ display:flex; min-height:100vh; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:236px; flex-shrink:0;
+    background:var(--ink);
+    color:#EDEFE7;
+    padding:22px 14px 18px;
+    display:flex; flex-direction:column;
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+  }
+  .brand{
+    font-family:var(--font-display);
+    font-size:20px; font-weight:600; letter-spacing:0.01em;
+    color:#fff; padding:2px 10px 4px;
+  }
+  .brand small{
+    display:block; font-family:var(--font-mono); font-size:10px;
+    color:#9FB6AC; font-weight:400; letter-spacing:0.06em; margin-top:3px;
+    text-transform:uppercase;
+  }
+  .nav-group{ margin-top:22px; }
+  .nav-label{
+    font-family:var(--font-mono); font-size:10px; letter-spacing:0.12em;
+    color:#7C9389; text-transform:uppercase; padding:0 10px; margin-bottom:6px;
+  }
+  .nav-btn{
+    display:flex; align-items:center; gap:10px;
+    width:100%; text-align:left; background:none; border:none;
+    color:#CFDAD3; font-family:var(--font-body); font-size:13.5px; font-weight:500;
+    padding:9px 10px; border-radius:7px; cursor:pointer;
+    margin-bottom:2px; transition:background .12s ease, color .12s ease;
+  }
+  .nav-btn:hover{ background:rgba(255,255,255,0.06); color:#fff; }
+  .nav-btn.active{ background:#EDEFE7; color:var(--ink); font-weight:600; }
+  .nav-btn .ic{ width:16px; text-align:center; opacity:0.9; font-size:14px; }
+  .sidebar-foot{
+    margin-top:auto; padding:12px 10px 2px; font-family:var(--font-mono);
+    font-size:10px; color:#6E8579; border-top:1px solid rgba(255,255,255,0.08); padding-top:14px;
+  }
+
+  /* ---------- Main ---------- */
+  .main{ flex:1; min-width:0; padding:26px 34px 60px; }
+  .topbar{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    margin-bottom:22px; flex-wrap:wrap; gap:14px;
+  }
+  .page-title{
+    font-family:var(--font-display); font-size:28px; font-weight:600; color:var(--ink);
+    margin:0;
+  }
+  .page-sub{ color:var(--text-muted); font-size:13px; margin-top:4px; }
+  .range-bar{
+    display:flex; align-items:center; gap:8px; background:var(--card);
+    border:1px solid var(--border); border-radius:9px; padding:5px;
+    box-shadow:var(--shadow);
+  }
+  .range-bar select, .range-bar input[type=date]{
+    border:none; background:transparent; font-family:var(--font-body);
+    font-size:12.5px; color:var(--text); padding:5px 6px; outline:none;
+  }
+  .pill-btn{
+    font-family:var(--font-body); font-size:12px; font-weight:600;
+    background:var(--ink); color:#fff; border:none; border-radius:7px;
+    padding:7px 13px; cursor:pointer;
+  }
+  .pill-btn.ghost{ background:transparent; color:var(--ink); border:1px solid var(--border); }
+  .pill-btn:hover{ opacity:0.88; }
+  .pill-btn.small{ padding:5px 10px; font-size:11.5px; }
+
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  /* ---------- Cards / grid ---------- */
+  .kpi-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-bottom:22px; }
+  .kpi-card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px 17px; box-shadow:var(--shadow); position:relative; overflow:hidden;
+  }
+  .kpi-card .lbl{ font-family:var(--font-mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); }
+  .kpi-card .val{ font-family:var(--font-display); font-size:26px; font-weight:600; color:var(--ink); margin-top:6px; }
+  .kpi-card .sub{ font-size:11.5px; color:var(--text-muted); margin-top:4px; }
+  .kpi-card .sub.pos{ color:var(--positive); }
+  .kpi-card .sub.neg{ color:var(--negative); }
+  .kpi-card .seal{
+    position:absolute; top:12px; right:12px; width:26px; height:26px; border-radius:50%;
+    border:1.5px solid var(--accent); display:flex; align-items:center; justify-content:center;
+    color:var(--accent); font-size:12px;
+  }
+
+  .panel-row{ display:grid; gap:16px; }
+  .panel-row.two{ grid-template-columns:1.4fr 1fr; }
+  .panel-row.three{ grid-template-columns:repeat(3,1fr); }
+  @media (max-width:980px){ .panel-row.two, .panel-row.three{ grid-template-columns:1fr; } }
+
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px 20px; box-shadow:var(--shadow); margin-bottom:16px;
+  }
+  .card-h{ display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; gap:10px; flex-wrap:wrap;}
+  .card-h h3{ font-family:var(--font-display); font-size:16px; font-weight:600; margin:0; color:var(--ink); }
+  .card-h .note{ font-size:11.5px; color:var(--text-muted); }
+  .chart-wrap{ position:relative; height:260px; }
+  .chart-wrap.short{ height:190px; }
+
+  table{ width:100%; border-collapse:collapse; font-size:12.8px; }
+  thead th{
+    text-align:left; font-family:var(--font-mono); font-size:10px; text-transform:uppercase;
+    letter-spacing:0.05em; color:var(--text-muted); font-weight:600; padding:7px 8px;
+    border-bottom:1px solid var(--border); white-space:nowrap;
+  }
+  tbody td{ padding:8px 8px; border-bottom:1px solid var(--border-soft); vertical-align:top; }
+  tbody tr:hover{ background:#FAF9F3; }
+  .num{ font-family:var(--font-mono); text-align:right; white-space:nowrap; }
+  .mono{ font-family:var(--font-mono); }
+  .muted{ color:var(--text-muted); }
+  .table-scroll{ overflow-x:auto; }
+
+  .tag{
+    display:inline-block; font-family:var(--font-mono); font-size:10px; padding:2px 7px;
+    border-radius:20px; text-transform:uppercase; letter-spacing:0.03em; font-weight:600;
+  }
+  .tag.paid{ background:var(--positive-soft); color:var(--positive); }
+  .tag.due{ background:var(--negative-soft); color:var(--negative); }
+  .tag.neutral{ background:var(--accent-soft); color:var(--accent); }
+  .tag.grey{ background:#EEEDE3; color:var(--text-muted); }
+
+  .empty-state{
+    text-align:center; padding:40px 20px; color:var(--text-muted);
+  }
+  .empty-state .big{ font-family:var(--font-display); font-size:18px; color:var(--ink); margin-bottom:6px;}
+
+  textarea{
+    width:100%; font-family:var(--font-mono); font-size:11.5px; border:1px solid var(--border);
+    border-radius:8px; padding:10px; resize:vertical; background:#FCFBF6; color:var(--text);
+  }
+  input[type=text], input[type=number], input[type=date], select{
+    font-family:var(--font-body); font-size:13px; border:1px solid var(--border);
+    border-radius:7px; padding:7px 9px; background:#fff; color:var(--text); width:100%;
+  }
+  label{ font-size:11.5px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px; }
+  .field{ margin-bottom:12px; }
+  .field-row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+  .toast{
+    position:fixed; bottom:20px; right:20px; background:var(--ink); color:#fff;
+    padding:11px 16px; border-radius:8px; font-size:12.5px; box-shadow:var(--shadow);
+    opacity:0; transform:translateY(6px); transition:all .2s ease; pointer-events:none; z-index:999;
+  }
+  .toast.show{ opacity:1; transform:translateY(0); }
+
+  .badge-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .stat-line{ display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border-soft); font-size:12.8px; }
+  .stat-line:last-child{ border-bottom:none; }
+  .stat-line .k{ color:var(--text-muted); }
+  .stat-line .v{ font-family:var(--font-mono); font-weight:600; color:var(--ink); }
+
+  .ledger-strip{
+    display:flex; align-items:center; gap:8px; font-family:var(--font-mono); font-size:10.5px;
+    color:var(--text-muted); margin-bottom:16px; padding-bottom:10px; border-bottom:1px dashed var(--border);
+  }
+  .dot{ width:5px; height:5px; border-radius:50%; background:var(--accent); }
+
+  .cth-timeline{ display:flex; flex-direction:column; gap:0; }
+  .cth-item{ display:flex; gap:14px; padding:14px 0; border-bottom:1px solid var(--border-soft); }
+  .cth-item:last-child{ border-bottom:none; }
+  .cth-dot{ width:30px; height:30px; border-radius:50%; background:var(--accent-soft); color:var(--accent);
+    display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:11px; font-weight:700; flex-shrink:0; }
+  .cth-item.urgent .cth-dot{ background:var(--negative-soft); color:var(--negative); }
+  .cth-body .t{ font-weight:600; color:var(--ink); font-size:13.5px; }
+  .cth-body .d{ font-size:12px; color:var(--text-muted); margin-top:2px; }
+  .cth-date{ margin-left:auto; text-align:right; font-family:var(--font-mono); font-size:12.5px; color:var(--ink); font-weight:600; white-space:nowrap; }
+
+  .import-drop{
+    border:1.5px dashed var(--border); border-radius:10px; padding:20px; text-align:center;
+    color:var(--text-muted); font-size:12.5px; background:#FCFBF6; margin-bottom:12px;
+  }
+  .flex-between{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
+  .btn-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .disclaimer{
+    font-size:11px; color:var(--text-faint); background:#FAF9F3; border:1px solid var(--border-soft);
+    border-radius:8px; padding:10px 12px; margin-top:10px; line-height:1.5;
+  }
+  .search-box{
+    display:flex; align-items:center; gap:6px; border:1px solid var(--border); border-radius:7px;
+    padding:5px 10px; background:#fff; min-width:180px;
+  }
+  .search-box input{ border:none; outline:none; font-size:12.5px; width:100%; }
+
+  ::-webkit-scrollbar{ width:9px; height:9px; }
+  ::-webkit-scrollbar-thumb{ background:#D6D3C2; border-radius:6px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand">Tatsatiti<small>Company Ledger &middot; No. 16922756</small></div>
+    <nav class="nav-group">
+      <div class="nav-label">Overview</div>
+      <button class="nav-btn active" data-tab="dashboard"><span class="ic">&#9670;</span>Dashboard</button>
+      <button class="nav-btn" data-tab="pl"><span class="ic">&#9633;</span>Profit &amp; Loss</button>
+      <button class="nav-btn" data-tab="vat"><span class="ic">&#8419;</span>VAT</button>
+    </nav>
+    <nav class="nav-group">
+      <div class="nav-label">Records</div>
+      <button class="nav-btn" data-tab="sales"><span class="ic">&#9650;</span>Sales &amp; Orders</button>
+      <button class="nav-btn" data-tab="purchases"><span class="ic">&#9660;</span>Purchases &amp; Invoices</button>
+    </nav>
+    <nav class="nav-group">
+      <div class="nav-label">Intelligence</div>
+      <button class="nav-btn" data-tab="customers"><span class="ic">&#9679;</span>Customers</button>
+      <button class="nav-btn" data-tab="bi"><span class="ic">&#9733;</span>Business Intel</button>
+    </nav>
+    <nav class="nav-group">
+      <div class="nav-label">Compliance</div>
+      <button class="nav-btn" data-tab="ch"><span class="ic">&#9878;</span>Companies House</button>
+      <button class="nav-btn" data-tab="settings"><span class="ic">&#9881;</span>Company &amp; Data</button>
+    </nav>
+    <div class="sidebar-foot">TATSATITI LTD<br>UTR 1554724196<br>Data stored in this browser</div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1 class="page-title" id="pageTitle">Dashboard</h1>
+        <div class="page-sub" id="pageSub">Loading your ledger&hellip;</div>
+      </div>
+      <div class="range-bar" id="globalRangeBar">
+        <select id="rangePreset">
+          <option value="all">All time</option>
+          <option value="fy">Current tax year</option>
+          <option value="quarter">Last 90 days</option>
+          <option value="month">This month</option>
+          <option value="custom">Custom range</option>
+        </select>
+        <input type="date" id="rangeFrom" style="display:none;">
+        <span id="rangeToSep" style="display:none; color:var(--text-muted);">&rarr;</span>
+        <input type="date" id="rangeTo" style="display:none;">
+      </div>
+    </div>
+
+    <div id="tab-dashboard" class="tab-panel active"></div>
+    <div id="tab-pl" class="tab-panel"></div>
+    <div id="tab-vat" class="tab-panel"></div>
+    <div id="tab-sales" class="tab-panel"></div>
+    <div id="tab-purchases" class="tab-panel"></div>
+    <div id="tab-customers" class="tab-panel"></div>
+    <div id="tab-bi" class="tab-panel"></div>
+    <div id="tab-ch" class="tab-panel"></div>
+    <div id="tab-settings" class="tab-panel"></div>
+  </main>
+</div>
+<div class="toast" id="toast"></div>
+
+<script id="app-script">
+/* ============================================================
+   TATSATITI LEDGER — core utilities, storage, parsers
+   ============================================================ */
+
+const MONTHS_LONG = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+function fmtGBP(n, opts){
+  opts = opts || {};
+  if (n === null || n === undefined || isNaN(n)) n = 0;
+  const neg = n < 0;
+  const abs = Math.abs(n);
+  const s = abs.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return (neg ? '\u2212' : '') + '\u00A3' + s;
+}
+function fmtNum(n){
+  if (n === null || n === undefined || isNaN(n)) n = 0;
+  return n.toLocaleString('en-GB');
+}
+function fmtPct(n){
+  if (n === null || n === undefined || isNaN(n)) return '\u2014';
+  return n.toFixed(1) + '%';
+}
+function escapeHtml(s){
+  if (s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, function(c){
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+  });
+}
+function uid(prefix){ return (prefix||'id') + '_' + Math.random().toString(36).slice(2,10); }
+
+// Parse a wide variety of date strings into a JS Date (UTC-agnostic, local).
+function parseDateLoose(s){
+  if (!s) return null;
+  s = String(s).trim();
+  // Shopify style: 2026-07-23 13:09:30 +0100
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]));
+  // "21 July 2026"
+  m = s.match(/^(\d{1,2})\s+(\w+)\s+(\d{4})$/);
+  if (m) {
+    const mi = MONTHS_LONG.findIndex(mo => mo.toLowerCase().startsWith(m[2].toLowerCase().slice(0,3)));
+    if (mi >= 0) return new Date(parseInt(m[3]), mi, parseInt(m[1]));
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+function monthKey(d){
+  if (!d) return 'unknown';
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+function monthLabel(key){
+  if (key === 'unknown') return 'Undated';
+  const [y,m] = key.split('-');
+  return MONTHS_LONG[parseInt(m)-1].slice(0,3) + ' ' + y;
+}
+function fmtDateShort(d){
+  if (!d) return '\u2014';
+  return d.getDate() + ' ' + MONTHS_LONG[d.getMonth()].slice(0,3) + ' ' + d.getFullYear();
+}
+function addMonths(date, n){
+  const d = new Date(date.getTime());
+  d.setMonth(d.getMonth() + n);
+  return d;
+}
+function lastDayOfMonth(date){
+  return new Date(date.getFullYear(), date.getMonth()+1, 0);
+}
+function addDays(date, n){
+  const d = new Date(date.getTime());
+  d.setDate(d.getDate() + n);
+  return d;
+}
+
+/* ---------------- Storage layer ----------------
+   Uses window.storage (personal, per-user, persists across sessions)
+   with an in-memory fallback if storage is unavailable. */
+const MEM_FALLBACK = {};
+let STORAGE_OK = true;
+
+async function storeGet(key){
+  try{
+    if (window.storage && window.storage.get){
+      const r = await window.storage.get(key, false);
+      return r ? JSON.parse(r.value) : null;
+    }
+  }catch(e){ /* key not found or storage unavailable */ }
+  return MEM_FALLBACK[key] !== undefined ? MEM_FALLBACK[key] : null;
+}
+async function storeSet(key, value){
+  MEM_FALLBACK[key] = value;
+  try{
+    if (window.storage && window.storage.set){
+      await window.storage.set(key, JSON.stringify(value), false);
+      return true;
+    }
+  }catch(e){ STORAGE_OK = false; }
+  return false;
+}
+
+/* ---------------- Shopify orders CSV parser ---------------- */
+function num(v){
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  if (s === '') return null;
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+function str(v){
+  if (v === undefined || v === null) return null;
+  const s = String(v).trim();
+  return s === '' ? null : s;
+}
+function parseShopifyOrdersCSV(csvText){
+  if (typeof Papa === 'undefined'){
+    throw new Error('CSV parser library did not load on this network. Try reloading, or a different network/connection.');
+  }
+  const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+  const rows = parsed.data;
+  const orders = {};
+  const order = [];
+  for (const row of rows){
+    const name = str(row['Name']);
+    if (!name) continue;
+    if (!orders[name]){
+      order.push(name);
+      orders[name] = {
+        id: name,
+        email: str(row['Email']),
+        financialStatus: str(row['Financial Status']),
+        paidAt: str(row['Paid at']),
+        fulfillmentStatus: str(row['Fulfillment Status']),
+        currency: str(row['Currency']) || 'GBP',
+        subtotal: num(row['Subtotal']) || 0,
+        shipping: num(row['Shipping']) || 0,
+        taxes: num(row['Taxes']) || 0,
+        total: num(row['Total']) || 0,
+        discountCode: str(row['Discount Code']),
+        discountAmount: num(row['Discount Amount']) || 0,
+        createdAt: str(row['Created at']),
+        billingName: str(row['Billing Name']),
+        billingCity: str(row['Billing City']),
+        billingZip: str(row['Billing Zip']),
+        billingProvince: str(row['Billing Province']),
+        billingCountry: str(row['Billing Country']),
+        shippingName: str(row['Shipping Name']),
+        shippingCity: str(row['Shipping City']),
+        shippingZip: str(row['Shipping Zip']),
+        shippingProvince: str(row['Shipping Province']),
+        shippingCountry: str(row['Shipping Country']),
+        cancelledAt: str(row['Cancelled at']),
+        paymentMethod: str(row['Payment Method']),
+        refundedAmount: num(row['Refunded Amount']) || 0,
+        vendor: str(row['Vendor']),
+        outstandingBalance: num(row['Outstanding Balance']) || 0,
+        tags: str(row['Tags']),
+        source: str(row['Source']),
+        lineItems: [],
+      };
+    }
+    if (str(row['Lineitem name'])){
+      orders[name].lineItems.push({
+        qty: num(row['Lineitem quantity']) || 0,
+        name: str(row['Lineitem name']),
+        price: num(row['Lineitem price']) || 0,
+        sku: str(row['Lineitem sku']),
+        fulfillmentStatus: str(row['Lineitem fulfillment status']),
+        vendor: str(row['Vendor']),
+      });
+    }
+  }
+  return order.map(n => orders[n]);
+}
+
+/* ---------------- AW Dropship supplier invoice text parser ----------------
+   Paste raw text extracted from a supplier invoice PDF and this will
+   extract one or more invoices/refunds with line items. */
+function parseSupplierInvoiceText(text){
+  const chunks = text.split(/\n(?=Invoice inv-|Refund ref-)/g);
+  const docs = [];
+  for (const raw of chunks){
+    const c = raw.trim();
+    if (/^Invoice inv-/.test(c) || /^Refund ref-/.test(c)) docs.push(raw);
+  }
+  const results = [];
+  for (const d of docs){
+    const isRefund = /^\s*Refund ref-/.test(d);
+    let docNumber = null, docDate = null, originalInvoice = null;
+    if (isRefund){
+      const m = d.match(/Refund (ref-[\w-]+) Refund Date:\s*(\d{1,2} \w+ \d{4})/);
+      if (m){ docNumber = m[1]; docDate = m[2]; }
+      const om = d.match(/Original invoice number:\s*(inv-[\w-]+)/);
+      if (om) originalInvoice = om[1];
+    } else {
+      const m = d.match(/Invoice (inv-[\w-]+) Invoice date:\s*(\d{1,2} \w+ \d{4})/);
+      if (m){ docNumber = m[1]; docDate = m[2]; }
+    }
+    if (!docNumber) continue; // skip unparseable chunk
+    const paymentStateM = d.match(/Payment State:\s*(\w+)/);
+    const weightM = d.match(/Weight:\s*([\d.]+ ?k?g)/);
+    const dm = d.match(/Delivery address:([\s\S]*?)Code Description Price Qty\.? Amount/);
+    let deliveryCountry = null;
+    if (dm){
+      const lines = dm[1].split('\n').map(l=>l.trim()).filter(Boolean);
+      deliveryCountry = lines.length ? lines[lines.length-1] : null;
+    }
+    const netM = d.match(/Total Net\s*\u00A3(-?[\d.]+)/);
+    const totalM = d.match(/\nTotal\s*\u00A3(-?[\d.]+)/);
+    const vatM = d.match(/Tax\s*\u00A3(-?[\d.]+)\s*\nVAT 20% \(rate:20%\)/);
+    const outsideScope = /Outside the scope of Tax/.test(d);
+    const shippingM = d.match(/\nShipping\s*\u00A3(-?[\d.]+)/);
+    const chargesM = d.match(/\nCharges\s*\u00A3(-?[\d.]+)/);
+
+    const items = [];
+    const itemRe = /^([A-Za-z0-9\-]+)\s+(.+?)\s+\u00A3(-?[\d.]+)\s+(-?\d+)\s+\u00A3(-?[\d.]+)\s*$/gm;
+    let im;
+    while ((im = itemRe.exec(d)) !== null){
+      const code = im[1], desc = im[2], price = im[3], qty = im[4], amount = im[5];
+      if (['Total','Tax','VAT'].indexOf(code) !== -1) continue;
+      items.push({ code, desc: desc.trim(), price: parseFloat(price), qty: parseInt(qty,10), amount: parseFloat(amount) });
+    }
+
+    results.push({
+      docNumber, type: isRefund ? 'refund' : 'invoice', date: docDate, originalInvoice,
+      paymentState: paymentStateM ? paymentStateM[1] : null,
+      weight: weightM ? weightM[1] : null,
+      deliveryCountry,
+      totalNet: netM ? parseFloat(netM[1]) : null,
+      shipping: shippingM ? parseFloat(shippingM[1]) : null,
+      charges: chargesM ? parseFloat(chargesM[1]) : null,
+      vat: vatM ? parseFloat(vatM[1]) : (outsideScope ? 0 : null),
+      total: totalM ? parseFloat(totalM[1]) : null,
+      outsideScopeOfTax: outsideScope,
+      lineItems: items,
+    });
+  }
+  return results;
+}
+
+/* Codes on supplier invoices that represent shipping/handling, not real products */
+function isFulfillmentCode(code){
+  if (!code) return false;
+  return /^Z\d+$/i.test(code) || code === 'Hanging-AWD';
+}
+
+/* ---------------- File reading helpers ---------------- */
+function readFileAsText(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsText(file);
+  });
+}
+function readFileAsArrayBuffer(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+/* Reconstruct reading-order text from a pdf.js page's text content,
+   clustering items into lines by y-position and ordering left-to-right
+   within each line (mirrors how server-side PDF text extractors read tables). */
+function pdfPageToText(items){
+  const pts = items.map(it => ({ x: it.transform[4], y: it.transform[5], str: it.str }))
+    .filter(p => p.str !== undefined);
+  pts.sort((a,b) => b.y - a.y || a.x - b.x);
+  const TOL = 2.5;
+  const lines = [];
+  let current = null;
+  pts.forEach(p => {
+    if (current && Math.abs(p.y - current.y) <= TOL){
+      current.items.push(p);
+    } else {
+      current = { y: p.y, items: [p] };
+      lines.push(current);
+    }
+  });
+  return lines.map(l => l.items.sort((a,b) => a.x-b.x).map(i => i.str).join(' ')).join('\n');
+}
+
+async function extractPdfText(file){
+  if (typeof pdfjsLib === 'undefined'){
+    throw new Error('PDF reader library did not load on this network. Try reloading, or use the paste-text option.');
+  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = (typeof PDFJS_WORKER_SRC !== 'undefined' && PDFJS_WORKER_SRC)
+    ? PDFJS_WORKER_SRC
+    : 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf = await readFileAsArrayBuffer(file);
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const pageTexts = [];
+  for (let p = 1; p <= pdf.numPages; p++){
+    const page = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    pageTexts.push(pdfPageToText(content.items));
+  }
+  return pageTexts.join('\n');
+}
+/* ============================================================
+   TATSATITI LEDGER — derived computations
+   ============================================================ */
+
+function getOrderDate(o){ return parseDateLoose(o.paidAt || o.createdAt); }
+function getInvoiceDate(inv){ return parseDateLoose(inv.date); }
+
+function inRange(date, range){
+  if (range.preset === 'all') return true;
+  if (!date) return false;
+  if (range.from && date < range.from) return false;
+  if (range.to && date > range.to) return false;
+  return true;
+}
+
+function resolveRange(rangeState){
+  const now = new Date();
+  if (rangeState.preset === 'month'){
+    return { preset:'month', from:new Date(now.getFullYear(),now.getMonth(),1), to:lastDayOfMonth(now) };
+  }
+  if (rangeState.preset === 'quarter'){
+    return { preset:'quarter', from:addDays(now,-90), to:now };
+  }
+  if (rangeState.preset === 'fy'){
+    const apr6ThisYear = new Date(now.getFullYear(),3,6);
+    let from, to;
+    if (now >= apr6ThisYear){ from = apr6ThisYear; to = new Date(now.getFullYear()+1,3,5); }
+    else { from = new Date(now.getFullYear()-1,3,6); to = new Date(now.getFullYear(),3,5); }
+    return { preset:'fy', from, to };
+  }
+  if (rangeState.preset === 'custom'){
+    return { preset:'custom', from: rangeState.from ? new Date(rangeState.from) : null, to: rangeState.to ? new Date(rangeState.to) : null };
+  }
+  return { preset:'all', from:null, to:null };
+}
+
+function filterOrders(orders, range){
+  return orders.filter(o => inRange(getOrderDate(o), range));
+}
+function filterInvoices(invoices, range){
+  return invoices.filter(i => inRange(getInvoiceDate(i), range));
+}
+function activeOrders(orders){ return orders.filter(o => !o.cancelledAt); }
+
+function computeKPIs(orders, invoices, range){
+  const ords = filterOrders(activeOrders(orders), range);
+  const invs = filterInvoices(invoices, range);
+  const revenue = ords.reduce((s,o)=> s + (o.total||0) - (o.refundedAmount||0), 0);
+  const ordersCount = ords.length;
+  const aov = ordersCount ? revenue/ordersCount : 0;
+  const cogs = invs.reduce((s,i)=> s + (i.total||0), 0);
+  const grossProfit = revenue - cogs;
+  const margin = revenue ? (grossProfit/revenue*100) : null;
+  const inputVAT = invs.reduce((s,i)=> s + (i.vat||0), 0);
+  const uniqueCustomers = new Set(ords.map(o => (o.email||o.billingName||'').toLowerCase())).size;
+  const refunds = invs.filter(i=>i.type==='refund').reduce((s,i)=> s + Math.abs(i.total||0), 0);
+  return { revenue, ordersCount, aov, cogs, grossProfit, margin, inputVAT, uniqueCustomers, invoiceCount: invs.length, refunds };
+}
+
+function monthlySeries(orders, invoices){
+  const map = {};
+  activeOrders(orders).forEach(o => {
+    const k = monthKey(getOrderDate(o));
+    map[k] = map[k] || { revenue:0, cogs:0, orders:0 };
+    map[k].revenue += (o.total||0) - (o.refundedAmount||0);
+    map[k].orders += 1;
+  });
+  invoices.forEach(inv => {
+    const k = monthKey(getInvoiceDate(inv));
+    map[k] = map[k] || { revenue:0, cogs:0, orders:0 };
+    map[k].cogs += inv.total||0;
+  });
+  const keys = Object.keys(map).filter(k => k !== 'unknown').sort();
+  return keys.map(k => ({ key:k, label:monthLabel(k), revenue:map[k].revenue, cogs:map[k].cogs, orders:map[k].orders, profit: map[k].revenue - map[k].cogs }));
+}
+
+function computeVATReturn(orders, invoices, range){
+  const ords = filterOrders(activeOrders(orders), range);
+  const invs = filterInvoices(invoices, range);
+  const outputVAT = ords.reduce((s,o)=> s + (o.taxes||0), 0);
+  const inputVAT = invs.reduce((s,i)=> s + (i.vat||0), 0);
+  const netVATdue = outputVAT - inputVAT;
+  const box6 = ords.reduce((s,o)=> s + (o.subtotal||0) + (o.shipping||0), 0);
+  const box7 = invs.reduce((s,i)=> s + (i.totalNet||0), 0);
+  return { outputVAT, inputVAT, netVATdue, box6, box7, orderCount: ords.length, invoiceCount: invs.length };
+}
+
+function computePL(orders, invoices, range){
+  const ords = filterOrders(activeOrders(orders), range);
+  const invs = filterInvoices(invoices, range);
+  const revenue = ords.reduce((s,o)=> s + (o.total||0) - (o.refundedAmount||0), 0);
+  const cogs = invs.reduce((s,i)=> s + (i.total||0), 0);
+  const grossProfit = revenue - cogs;
+  const marginPct = revenue ? (grossProfit/revenue*100) : null;
+
+  const monthMap = {};
+  ords.forEach(o => {
+    const k = monthKey(getOrderDate(o));
+    monthMap[k] = monthMap[k] || { revenue:0, cogs:0 };
+    monthMap[k].revenue += (o.total||0) - (o.refundedAmount||0);
+  });
+  invs.forEach(i => {
+    const k = monthKey(getInvoiceDate(i));
+    monthMap[k] = monthMap[k] || { revenue:0, cogs:0 };
+    monthMap[k].cogs += i.total||0;
+  });
+  const rows = Object.keys(monthMap).filter(k => k !== 'unknown').sort().map(k => ({
+    key:k, label:monthLabel(k), revenue:monthMap[k].revenue, cogs:monthMap[k].cogs, profit: monthMap[k].revenue - monthMap[k].cogs
+  }));
+  return { revenue, cogs, grossProfit, marginPct, rows, orderCount: ords.length, invoiceCount: invs.length };
+}
+
+function computeCustomerIntel(orders, range){
+  const ords = filterOrders(activeOrders(orders), range);
+  const byCustomer = {};
+  ords.forEach(o => {
+    const key = (o.email || o.billingName || 'unknown').toLowerCase();
+    if (!byCustomer[key]){
+      byCustomer[key] = {
+        name: o.billingName || o.shippingName || key, email: o.email, orders: 0, revenue: 0,
+        lastOrder: null, firstOrder: null,
+        region: o.shippingProvince || o.billingProvince, country: o.shippingCountry || o.billingCountry
+      };
+    }
+    byCustomer[key].orders += 1;
+    byCustomer[key].revenue += (o.total||0) - (o.refundedAmount||0);
+    const d = getOrderDate(o);
+    if (d && (!byCustomer[key].lastOrder || d > byCustomer[key].lastOrder)) byCustomer[key].lastOrder = d;
+    if (d && (!byCustomer[key].firstOrder || d < byCustomer[key].firstOrder)) byCustomer[key].firstOrder = d;
+  });
+  const list = Object.values(byCustomer).sort((a,b) => b.revenue - a.revenue);
+  const repeatCustomers = list.filter(c => c.orders > 1).length;
+  const oneTime = list.length - repeatCustomers;
+
+  const byRegion = {};
+  ords.forEach(o => {
+    const region = o.shippingCountry === 'GB' ? (o.shippingProvince || 'Unknown UK region') : (o.shippingCountry || 'Unknown');
+    byRegion[region] = byRegion[region] || { revenue:0, orders:0 };
+    byRegion[region].revenue += (o.total||0) - (o.refundedAmount||0);
+    byRegion[region].orders += 1;
+  });
+  const regionList = Object.entries(byRegion).map(([k,v]) => ({ region:k, revenue:v.revenue, orders:v.orders })).sort((a,b) => b.revenue - a.revenue);
+
+  return { list, repeatCustomers, oneTime, regionList, totalCustomers: list.length };
+}
+
+function buildCostMap(invoices){
+  const map = {};
+  invoices.filter(i => i.type === 'invoice').forEach(inv => {
+    const d = getInvoiceDate(inv);
+    (inv.lineItems||[]).forEach(li => {
+      if (isFulfillmentCode(li.code)) return;
+      const key = (li.code||'').toLowerCase();
+      if (!key) return;
+      if (!map[key] || (d && (!map[key].date || d > map[key].date))){
+        map[key] = { cost: li.price, date: d, desc: li.desc };
+      }
+    });
+  });
+  return map;
+}
+
+function computeProductIntel(orders, invoices, range){
+  const ords = filterOrders(activeOrders(orders), range);
+  const costMap = buildCostMap(invoices);
+  const byProduct = {};
+  ords.forEach(o => {
+    (o.lineItems||[]).forEach(li => {
+      const key = (li.sku || li.name || 'unknown').toLowerCase();
+      if (!byProduct[key]) byProduct[key] = { name: li.name, sku: li.sku, qty:0, revenue:0, cost:0, hasCost:false };
+      byProduct[key].qty += li.qty||0;
+      byProduct[key].revenue += (li.price||0) * (li.qty||0);
+      const costEntry = li.sku ? costMap[li.sku.toLowerCase()] : null;
+      if (costEntry){ byProduct[key].cost += costEntry.cost * (li.qty||0); byProduct[key].hasCost = true; }
+    });
+  });
+  const list = Object.values(byProduct).map(p => ({
+    ...p,
+    margin: p.hasCost ? (p.revenue - p.cost) : null,
+    marginPct: (p.hasCost && p.revenue) ? ((p.revenue - p.cost)/p.revenue*100) : null
+  }));
+  list.sort((a,b) => b.revenue - a.revenue);
+  return list;
+}
+
+function computeCompaniesHouseDates(company){
+  const inc = parseDateLoose(company.incorporationDate);
+  if (!inc) return null;
+  const firstAnniversary = new Date(inc.getFullYear()+1, inc.getMonth(), inc.getDate());
+  const accountingReferenceDate = lastDayOfMonth(firstAnniversary);
+  const firstAccountsDue = addMonths(inc, 21);
+  const confirmationReviewDate = firstAnniversary;
+  const confirmationDue = addDays(confirmationReviewDate, 14);
+  const ctPeriodEnd = accountingReferenceDate;
+  const ctReturnDue = addMonths(ctPeriodEnd, 12);
+  const ctPaymentDue = addDays(addMonths(ctPeriodEnd, 9), 1);
+  const ctNotifyDue = addMonths(inc, 3);
+  return {
+    incorporationDate: inc, accountingReferenceDate, firstAccountsDue,
+    confirmationReviewDate, confirmationDue, ctPeriodEnd, ctReturnDue, ctPaymentDue, ctNotifyDue
+  };
+}
+
+function mergeOrders(existing, incoming){
+  const map = {};
+  existing.forEach(o => map[o.id] = o);
+  let added = 0, updated = 0;
+  incoming.forEach(o => { if (map[o.id]) updated++; else added++; map[o.id] = o; });
+  return { list: Object.values(map), added, updated };
+}
+function mergeInvoices(existing, incoming){
+  const map = {};
+  existing.forEach(i => map[i.docNumber] = i);
+  let added = 0, updated = 0;
+  incoming.forEach(i => { if (map[i.docNumber]) updated++; else added++; map[i.docNumber] = i; });
+  return { list: Object.values(map), added, updated };
+}
+const SEED_ORDERS = [{"id":"#AN1065","email":"kirsty_m_clarke@hotmail.com","financialStatus":"paid","paidAt":"2026-07-23 13:09:30 +0100","fulfillmentStatus":"unfulfilled","currency":"GBP","subtotal":64.75,"shipping":0.0,"taxes":0.0,"total":64.75,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-23 13:09:30 +0100","billingName":"Kirsty Clarke","billingCity":"Livingston","billingZip":"EH54 6LQ","billingProvince":"SCT","billingCountry":"GB","shippingName":"Kirsty Clarke","shippingCity":"Livingston","shippingZip":"EH54 6LQ","shippingProvince":"SCT","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan Madagascar Labradorite Statement Stone (approx 900-1100gms  140-170mm)","price":64.75,"sku":"lbs-08","fulfillmentStatus":"pending","vendor":"An\u0101sha"}]},{"id":"#AN1064","email":"jeaeek@gmail.com","financialStatus":"paid","paidAt":"2026-07-23 06:04:03 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":60.61,"shipping":35.81,"taxes":0.0,"total":96.42,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-23 06:04:02 +0100","billingName":"Jeanette Eek","billingCity":"Fjerdingby","billingZip":"'2008","billingProvince":null,"billingCountry":"NO","shippingName":"Jeanette Eek","shippingCity":"Fjerdingby","shippingZip":"'2008","shippingProvince":null,"shippingCountry":"NO","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"AW Dropship UK","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan Magic Spell Candle | Cleansing","price":16.53,"sku":"msc-02","fulfillmentStatus":"fulfilled","vendor":"AW Dropship UK"},{"qty":1,"name":"Ancient Witch Ritual Candles - Gothic Garden","price":16.53,"sku":"awtpc-01","fulfillmentStatus":"fulfilled","vendor":"AW Dropship UK"},{"qty":1,"name":"Organic Lavender Hair Growth Serum (30ml)","price":11.94,"sku":"ohs-06","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"},{"qty":1,"name":"Ancient Witch Perfume Oil - Lost in Sin","price":15.61,"sku":"awpo-05","fulfillmentStatus":"fulfilled","vendor":"AW Dropship UK"}]},{"id":"#AN1063","email":"russandleanne@ntlworld.com","financialStatus":"paid","paidAt":null,"fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":0.0,"shipping":0.0,"taxes":0.0,"total":0.0,"discountCode":"FarmD45","discountAmount":43.4,"createdAt":"2026-07-21 01:10:51 +0100","billingName":"Leanne King","billingCity":"Newport","billingZip":"NP19 9NY","billingProvince":"WLS","billingCountry":"GB","shippingName":"Leanne King","shippingCity":"Newport","shippingZip":"NP19 9NY","shippingProvince":"WLS","shippingCountry":"GB","cancelledAt":null,"paymentMethod":null,"refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Natural Witch Hazel & Tea Tree Facial Toner Mist (100ml)","price":10.25,"sku":"wsp-03","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"},{"qty":1,"name":"Artisan Daisy Fine Fragrance Perfume Oil (10ml)","price":9.9,"sku":"ffpo-03","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"},{"qty":1,"name":"Soy Wax Melts Jar | Vanilla & Nutmeg","price":11.5,"sku":"swmj-08","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"},{"qty":1,"name":"Botanical Sandalwood Silk Hand & Body Wash (300ml)","price":11.75,"sku":"fhbw-06","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1062","email":"kam.therapy@outlook.com","financialStatus":"paid","paidAt":"2026-07-19 22:36:11 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":36.5,"shipping":0.0,"taxes":0.0,"total":36.5,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-19 22:36:11 +0100","billingName":"Kamaljeet Nijjar","billingCity":"Halesowen West Midlands","billingZip":"B62 9BL","billingProvince":"ENG","billingCountry":"GB","shippingName":"Kamaljeet Nijjar","shippingCity":"West Midlands","shippingZip":"B62 9BL","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"Nomad Sari","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Nomad Sari Pareo | Turquoise & Gold Fish Print | Natural","price":13.25,"sku":"nsmed-03","fulfillmentStatus":"fulfilled","vendor":"Nomad Sari"},{"qty":1,"name":"Temple String Bracelet | Endless Wisdom | Handmade & Artisan","price":23.25,"sku":"tsj-06","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1061","email":"andrea.gilbert487@gmail.com","financialStatus":"paid","paidAt":"2026-07-19 11:03:03 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":14.25,"shipping":0.0,"taxes":0.0,"total":14.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-19 11:03:02 +0100","billingName":"Andrea Gilbert","billingCity":"Wigan","billingZip":"WN5 8RS","billingProvince":"ENG","billingCountry":"GB","shippingName":"Andrea Gilbert","shippingCity":"Wigan","shippingZip":"WN5 8RS","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan Vintage Glass Long Drop Earrings | Soft Pink | Stainless Steel","price":14.25,"sku":"vintg-21","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1060","email":"blokepitt@aol.com","financialStatus":"paid","paidAt":"2026-07-18 12:20:44 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":6.9,"shipping":0.0,"taxes":0.0,"total":6.9,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-18 12:20:43 +0100","billingName":"Vince Pitt","billingCity":"Pinner","billingZip":"HA5 3LP","billingProvince":"ENG","billingCountry":"GB","shippingName":"Vincent Pitt","shippingCity":"Harrow, London","shippingZip":"HA5 3LP","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan Incense Cones | Citronella & Lemongrass","price":6.9,"sku":"stamc-20","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1059","email":"mitesh_tanna@hotmail.com","financialStatus":"paid","paidAt":"2026-07-18 11:26:48 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":50.0,"shipping":0.0,"taxes":0.0,"total":50.0,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-18 11:26:47 +0100","billingName":"Mitesh Tanna","billingCity":"Northwood","billingZip":"HA6 1HH","billingProvince":"ENG","billingCountry":"GB","shippingName":"Mitesh Tanna","shippingCity":"Northwood","shippingZip":"HA6 1HH","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Store Credit + Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan Charcoal Cotton Canvas Laptop Messenger Bag","price":23.5,"sku":"cottmb-08","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"},{"qty":1,"name":"Stonewashed Cotton Oversized Tote | Chakra Freedom | 14oz","price":16.75,"sku":"nsotb-02","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"},{"qty":1,"name":"Artisan Vintage Glass Loop Earrings | Lavender | Stainless Steel","price":9.75,"sku":"vintg-15","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1058","email":"james.obrien2005@gmail.com","financialStatus":"paid","paidAt":"2026-07-18 11:25:20 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":25.0,"shipping":0.0,"taxes":0.0,"total":25.0,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-18 11:25:20 +0100","billingName":"James O'Brien","billingCity":"London","billingZip":"SW2 1EA","billingProvince":"ENG","billingCountry":"GB","shippingName":"James O'Brien","shippingCity":"London","shippingZip":"SW16 2TU","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan Lemon & Ginger Green Tea (50g)","price":9.1,"sku":"arttt-21","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"},{"qty":1,"name":"Artisan Glass Infuser Teapot | Tower Shape (350ml)","price":15.9,"sku":"gteap-01","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1057","email":"sheilagollins@yahoo.co.uk","financialStatus":"paid","paidAt":"2026-07-18 09:51:53 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":19.25,"shipping":0.0,"taxes":0.0,"total":19.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-18 09:51:51 +0100","billingName":"Gill Milns","billingCity":"Nottingham","billingZip":"NG3 3FB","billingProvince":"ENG","billingCountry":"GB","shippingName":"Gill Milns","shippingCity":"Nottingham","shippingZip":"NG3 3FB","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan Soap Flower Bouquet | Lavender Rose & Carnation | Bath & Body Gift","price":19.25,"sku":"lsf-03","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1056","email":"jyotijain80@hotmail.com","financialStatus":"paid","paidAt":"2026-07-15 13:41:22 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":22.65,"shipping":0.0,"taxes":0.0,"total":22.65,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-15 13:41:21 +0100","billingName":"Jyoti Jain","billingCity":"Walsall","billingZip":"WS5 3PN","billingProvince":"ENG","billingCountry":"GB","shippingName":"Jyoti Jain","shippingCity":"Walsall","shippingZip":"WS5 3PN","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Botanical Sandalwood Silk Body Lotion (300ml)","price":10.9,"sku":"fhbl-06","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"},{"qty":1,"name":"Botanical Sandalwood Silk Hand & Body Wash (300ml)","price":11.75,"sku":"fhbw-06","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1055","email":"LBM@highkey.co.uk","financialStatus":"paid","paidAt":"2026-07-14 08:57:09 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":9.75,"shipping":0.0,"taxes":0.0,"total":9.75,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-14 08:57:09 +0100","billingName":"LynnB McDonald","billingCity":"Leeds","billingZip":"LS18 4EX","billingProvince":"ENG","billingCountry":"GB","shippingName":"LynnB McDonald","shippingCity":"Leeds","shippingZip":"LS18 4EX","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"PayPal Express Checkout","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan Vintage Glass Fairy Earrings | Royal Blue | Stainless Steel","price":9.75,"sku":"vintg-08","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1054","email":"angela.sharma@networkrail.co.uk","financialStatus":"paid","paidAt":"2026-07-13 02:04:41 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":26.25,"shipping":0.0,"taxes":0.0,"total":26.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-13 02:04:40 +0100","billingName":"Angela Sharma","billingCity":"Belvedere","billingZip":"DA17 5RB","billingProvince":"ENG","billingCountry":"GB","shippingName":"Angela Sharma","shippingCity":"Belvedere","shippingZip":"DA17 5RB","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"Nomad Sari","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Nomad Sari Sea Blue & Gold Fish Print Dress (L/XL) | Natural","price":26.25,"sku":"nsmed-22","fulfillmentStatus":"fulfilled","vendor":"Nomad Sari"}]},{"id":"#AN1053","email":"rachelburman@yahoo.co.uk","financialStatus":"paid","paidAt":"2026-07-12 20:23:52 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":26.25,"shipping":0.0,"taxes":0.0,"total":26.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-12 20:23:34 +0100","billingName":"miss r j burman","billingCity":"Radcliffe/ Manchester","billingZip":"M26 3RX","billingProvince":"ENG","billingCountry":"GB","shippingName":"Rachel Burman-Thompson","shippingCity":"Manchester","shippingZip":"M26 3RX","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"PayPal Express Checkout","refundedAmount":0.0,"vendor":"Nomad Sari","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Nomad Sari Turquoise & Gold Coral Print Dress (M/L) | Natural","price":26.25,"sku":"nsmed-19","fulfillmentStatus":"fulfilled","vendor":"Nomad Sari"}]},{"id":"#AN1052","email":"nikitaashichadha@gmail.com","financialStatus":"paid","paidAt":"2026-07-10 22:08:20 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":7.75,"shipping":0.0,"taxes":0.0,"total":7.75,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-10 22:08:19 +0100","billingName":"Nikita Chadha","billingCity":"Greenhithe","billingZip":"DA9 9YW","billingProvince":"ENG","billingCountry":"GB","shippingName":"Nikita Chadha","shippingCity":"Greenhithe","shippingZip":"DA9 9YW","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan Ethereal Waters Oracle Deck | Sirens & Moonlight","price":7.75,"sku":"ocards-02","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1051","email":"louisewinn23@gmail.com","financialStatus":"paid","paidAt":"2026-07-10 11:01:35 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":21.5,"shipping":0.0,"taxes":0.0,"total":21.5,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-10 11:01:34 +0100","billingName":"Louise Winn","billingCity":"Hertford","billingZip":"SG14 3FF","billingProvince":"ENG","billingCountry":"GB","shippingName":"Louise Winn","shippingCity":"Hertford","shippingZip":"SG14 3FF","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan Green Mushroom Hemp Party Bag","price":21.5,"sku":"hempb-42","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1050","email":"anthonyroberts1999@yahoo.co.uk","financialStatus":"paid","paidAt":"2026-07-10 05:32:52 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":12.25,"shipping":0.0,"taxes":0.0,"total":12.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-10 05:32:51 +0100","billingName":"Anthony Roberts","billingCity":"London","billingZip":"N1 2DJ","billingProvince":"ENG","billingCountry":"GB","shippingName":"Anthony Roberts","shippingCity":"London","shippingZip":"N1 2DJ","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Gemstone Lucky Elephant | Amethyst | Natural Materials & Real Gemstone","price":12.25,"sku":"gemf-56","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1049","email":"mwearing17@gmail.com","financialStatus":"paid","paidAt":"2026-07-10 01:27:52 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":19.5,"shipping":0.0,"taxes":0.0,"total":19.5,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-10 01:27:52 +0100","billingName":"Amanda Wearing","billingCity":"Lancaster","billingZip":"LA1 5EZ","billingProvince":"ENG","billingCountry":"GB","shippingName":"Amanda Wearing","shippingCity":"Lancaster","shippingZip":"LA1 5EZ","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Handcrafted Natural Honey Onyx Soap Dish | 15.5x11cm","price":19.5,"sku":"ssd-04","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1048","email":"katgordon10@outlook.com","financialStatus":"paid","paidAt":"2026-07-09 18:51:03 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":18.25,"shipping":0.0,"taxes":0.0,"total":18.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-09 18:51:03 +0100","billingName":"Katelyn Gordon","billingCity":"Glasgow","billingZip":"G45 9TP","billingProvince":"SCT","billingCountry":"GB","shippingName":"Katelyn Gordon","shippingCity":"Glasgow","shippingZip":"G45 9TP","shippingProvince":"SCT","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan Gold Foil Tarot Deck & Guidebook | Gift Box","price":18.25,"sku":"tarotc-02","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1047","email":"kaur82@hotmail.co.uk","financialStatus":"paid","paidAt":"2026-07-08 22:16:50 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":13.75,"shipping":0.0,"taxes":0.0,"total":13.75,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-08 22:16:50 +0100","billingName":"Amendeep Heer","billingCity":"SOUTHAMPTON","billingZip":"SO16 7GP","billingProvince":"ENG","billingCountry":"GB","shippingName":"Amendeep Heer","shippingCity":"SOUTHAMPTON","shippingZip":"SO16 7GP","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Herbal Jade Teapot Set | Pot & Two Cups | Artisan Tea Gift","price":13.75,"sku":"teap-26","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1046","email":"michael.anderson@outlook.com","financialStatus":"paid","paidAt":"2026-07-07 09:09:47 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":3.5,"shipping":0.0,"taxes":0.0,"total":3.5,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-07 09:09:46 +0100","billingName":"Michael Anderson","billingCity":"Leeds","billingZip":"LS1 1BA","billingProvince":"ENG","billingCountry":"GB","shippingName":"Michael Anderson","shippingCity":"Leeds","shippingZip":"LS1 1BA","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"AW Dropship UK","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan MeltEaze Wax Melts 50g | Emerald Forest | Deep In the Forrest","price":3.5,"sku":"melte-06","fulfillmentStatus":"fulfilled","vendor":"AW Dropship UK"}]},{"id":"#AN1045","email":"cshopland@icloud.com","financialStatus":"paid","paidAt":"2026-07-05 16:32:14 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":14.9,"shipping":0.0,"taxes":0.0,"total":14.9,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-05 16:32:14 +0100","billingName":"Christine Lawrence","billingCity":"Weston-super-Mare","billingZip":"BS22 8DU","billingProvince":"ENG","billingCountry":"GB","shippingName":"Christine Lawrence","shippingCity":"Weston-super-Mare","shippingZip":"BS22 8DU","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan 7 Chakra Crystal Soy Candle | Full Harmony","price":14.9,"sku":"chkcc-08","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1044","email":"steph.hooley@btinternet.com","financialStatus":"paid","paidAt":"2026-07-04 19:54:52 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":13.75,"shipping":0.0,"taxes":0.0,"total":13.75,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-04 19:54:51 +0100","billingName":"stephanie hill","billingCity":"Wigan","billingZip":"WN1 2TZ","billingProvince":"ENG","billingCountry":"GB","shippingName":"Steph Hill","shippingCity":"WIGAN","shippingZip":"WN1 2TZ","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"PayPal Express Checkout","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Herbal Jade Teapot Set | Pot & Two Cups | Artisan Tea Gift","price":13.75,"sku":"teap-26","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1043","email":"ba.rae@tiscali.co.uk","financialStatus":"paid","paidAt":"2026-07-02 20:47:31 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":21.5,"shipping":0.0,"taxes":0.0,"total":21.5,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-07-02 20:47:30 +0100","billingName":"Barbara Rae","billingCity":"Dumfries","billingZip":"DG1 3BW","billingProvince":"SCT","billingCountry":"GB","shippingName":"Barbara Rae","shippingCity":"Dumfries","shippingZip":"DG1 3BW","shippingProvince":"SCT","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Hand-Carved Mango Wood 3-Tier Revolving Box | Celtic Knot Design","price":21.5,"sku":"tarotb-08","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1042","email":"ceciliaedward@btinternet.com","financialStatus":"paid","paidAt":"2026-06-27 15:26:04 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":14.9,"shipping":0.0,"taxes":0.0,"total":14.9,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-27 15:26:03 +0100","billingName":"Cecilia Edward","billingCity":"Kirriemuir","billingZip":"DD8 4PA","billingProvince":"SCT","billingCountry":"GB","shippingName":"Cecilia Edward","shippingCity":"Kirriemuir","shippingZip":"DD8 4PA","shippingProvince":"SCT","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"Hop Hare","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Botanical Crystal & Flower Soy Candle | The Magician","price":14.9,"sku":"hhc-02","fulfillmentStatus":"fulfilled","vendor":"Hop Hare"}]},{"id":"#AN1041","email":"MagicMoo369@aol.com","financialStatus":"paid","paidAt":"2026-06-27 13:47:48 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":9.75,"shipping":0.0,"taxes":0.0,"total":9.75,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-27 13:47:48 +0100","billingName":"Lucinda Randolph","billingCity":"Aldershot","billingZip":"GU12 5AN","billingProvince":"ENG","billingCountry":"GB","shippingName":"Lucinda Randolph","shippingCity":"Ash Vale","shippingZip":"GU12 5AN","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"PayPal Express Checkout","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan Inspiration Bangle | Copper Galaxy","price":9.75,"sku":"insb-04","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1040","email":"kellydiane160721@gmail.com","financialStatus":"paid","paidAt":"2026-06-24 23:04:34 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":21.5,"shipping":0.0,"taxes":0.0,"total":21.5,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-24 23:04:33 +0100","billingName":"Diane Kelly","billingCity":"Ayr","billingZip":"KA8 8BF","billingProvince":"SCT","billingCountry":"GB","shippingName":"Diane Kelly","shippingCity":"Ayr","shippingZip":"KA8 8BF","shippingProvince":"SCT","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Hand-Carved Mango Wood 3-Tier Revolving Box | Celtic Knot Design","price":21.5,"sku":"tarotb-08","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1039","email":"raelgamsu@googlemail.com","financialStatus":"paid","paidAt":"2026-06-24 19:59:59 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":10.9,"shipping":0.0,"taxes":0.0,"total":10.9,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-24 19:59:58 +0100","billingName":"Rael Gamsu","billingCity":"Hendon","billingZip":"NW4 1NE","billingProvince":"ENG","billingCountry":"GB","shippingName":"Rael Gamsu","shippingCity":"Hendon","shippingZip":"NW4 1NE","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"Nomad Sari","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Nomad Sari Aqua Fish Scarf | Sea Blue (180x50cm) | Natural","price":10.9,"sku":"nsmed-29","fulfillmentStatus":"fulfilled","vendor":"Nomad Sari"}]},{"id":"#AN1038","email":"benanderson271277@gmail.com","financialStatus":"paid","paidAt":"2026-06-22 21:53:09 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":16.25,"shipping":0.0,"taxes":0.0,"total":16.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-22 21:53:08 +0100","billingName":"Ben Anderson","billingCity":"YORK","billingZip":"YO24 3EF","billingProvince":"ENG","billingCountry":"GB","shippingName":"Ben Anderson","shippingCity":"YORK","shippingZip":"YO24 3EF","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Brass Tibetan Mantra Bracelet | Tree of Life | Natural Materials &...","price":16.25,"sku":"tmb-01","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1037","email":"mary109jones@btinternet.com","financialStatus":"paid","paidAt":"2026-06-22 18:42:31 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":21.75,"shipping":0.0,"taxes":0.0,"total":21.75,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-22 18:42:31 +0100","billingName":"mary jones","billingCity":"monmouth","billingZip":"NP25 5BQ","billingProvince":"WLS","billingCountry":"GB","shippingName":"mary jones","shippingCity":"monmouth","shippingZip":"NP25 5BQ","shippingProvince":"WLS","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Hand-Carved Mango Wood Sliding Box | Sun & Moon Celestial Design","price":21.75,"sku":"tarotb-11","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1036","email":"zsulor@yahoo.co.uk","financialStatus":"paid","paidAt":"2026-06-15 13:48:24 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":8.25,"shipping":0.0,"taxes":0.0,"total":8.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-15 13:48:23 +0100","billingName":"Azizah Sulor","billingCity":"London","billingZip":"N1 2LD","billingProvince":"ENG","billingCountry":"GB","shippingName":"Azizah Sulor","shippingCity":"London","shippingZip":"N1 2LD","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Store Credit","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Artisan Wormwood Massage Hammer | Lemon","price":8.25,"sku":"mass-27","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1035","email":"mitesh_tanna@hotmail.com","financialStatus":"paid","paidAt":"2026-06-14 22:21:35 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":16.25,"shipping":0.0,"taxes":0.0,"total":16.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-14 22:21:34 +0100","billingName":"Mitesh Tanna","billingCity":"Northwood","billingZip":"HA6 1HH","billingProvince":"ENG","billingCountry":"GB","shippingName":"Mitesh Tanna","shippingCity":"Northwood","shippingZip":"HA6 1HH","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"Nomad Sari","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Handwoven Sari Jacquard Carryall Tote | Desert Loom","price":16.25,"sku":"nsjb-09","fulfillmentStatus":"fulfilled","vendor":"Nomad Sari"}]},{"id":"#AN1034","email":"annajprice@icloud.com","financialStatus":"paid","paidAt":"2026-06-13 00:23:48 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":6.5,"shipping":0.0,"taxes":0.0,"total":6.5,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-13 00:23:48 +0100","billingName":"Anna Price","billingCity":"London","billingZip":"N19 5TT","billingProvince":"ENG","billingCountry":"GB","shippingName":"Anna Price","shippingCity":"London","shippingZip":"N19 5TT","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Memento Mori Gothic Playing & Oracle Cards | Natural | Spiritual Gift","price":6.5,"sku":"pcards-01","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1033","email":"sam.haydn16@icloud.com","financialStatus":"paid","paidAt":"2026-06-12 20:06:54 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":21.75,"shipping":0.0,"taxes":0.0,"total":21.75,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-12 20:06:53 +0100","billingName":"Samuel Speicher","billingCity":"Blackwood, Caerphilly","billingZip":"NP12 1FD","billingProvince":"WLS","billingCountry":"GB","shippingName":"Samuel Speicher","shippingCity":"Blackwood, Caerphilly","shippingZip":"NP12 1FD","shippingProvince":"WLS","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Sun & Moon Carved Sliding Box | Handmade & Artisan | Spiritual Gift","price":21.75,"sku":"tarotb-11","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1032","email":"cpm.randall@gmail.com","financialStatus":"paid","paidAt":"2026-06-12 17:05:17 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":21.5,"shipping":0.0,"taxes":0.0,"total":21.5,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-12 17:05:16 +0100","billingName":"Simon Randall","billingCity":"Scarborough","billingZip":"YO11 1DB","billingProvince":"ENG","billingCountry":"GB","shippingName":"Simon Randall","shippingCity":"Scarborough","shippingZip":"YO11 1DB","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Celtic Carved 3 Tier Revolving Box | Handmade & Artisan","price":21.5,"sku":"tarotb-08","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1031","email":"hayleywoo85@yahoo.co.uk","financialStatus":"paid","paidAt":"2026-06-12 15:25:52 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":52.65,"shipping":0.0,"taxes":0.0,"total":52.65,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-12 15:25:52 +0100","billingName":"Hayley McMaster","billingCity":"Hull","billingZip":"HU8 9QQ","billingProvince":"ENG","billingCountry":"GB","shippingName":"Hayley McMaster","shippingCity":"Hull","shippingZip":"HU8 9QQ","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Small Terrarium on Natural Tung Wood | Natural | Home Decor","price":11.9,"sku":"gter-08","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"},{"qty":1,"name":"Iconic Classic Tote Bag - Black Cat - Natural 10oz | Natural Materials","price":8.25,"sku":"iconic-15","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"},{"qty":1,"name":"Aromatika Charcoal Free Hex Incense - Honey Rose | Handmade &...","price":5.5,"sku":"aromcfi-09","fulfillmentStatus":"fulfilled","vendor":"Aromatika"},{"qty":1,"name":"Egyptian Dragon Premium Incense | Handmade & Plant-Based","price":5.75,"sku":"stamfp-29","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"},{"qty":1,"name":"Handcrafted Soap Slice  100g  - Jasmine & Greentea | Handmade & Vegan","price":7.5,"sku":"dshsbs-05","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"},{"qty":1,"name":"Lrg Gemstone Tree - Rose Quartz on Pink Agate Base (100 stones) | N...","price":13.75,"sku":"agemt-09","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1030","email":"zsulor@yahoo.co.uk","financialStatus":"paid","paidAt":"2026-06-12 12:07:18 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":16.5,"shipping":0.0,"taxes":0.0,"total":16.5,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-12 12:07:18 +0100","billingName":"Azizah Sulor","billingCity":"London","billingZip":"N1 2LD","billingProvince":"ENG","billingCountry":"GB","shippingName":"Azizah Sulor","shippingCity":"London","shippingZip":"N1 2LD","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Wormwood Massage Hammer - Green | Artisan | Relaxation & Ritual","price":8.25,"sku":"mass-28","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"},{"qty":1,"name":"Wormwood Massage Hammer - Lemon | Artisan | Relaxation & Ritual","price":8.25,"sku":"mass-27","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1029","email":"harrisonroyjamesbutler@gmail.com","financialStatus":"paid","paidAt":"2026-06-08 23:43:16 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":14.25,"shipping":0.0,"taxes":0.0,"total":14.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-08 23:43:15 +0100","billingName":"Harrison Butler","billingCity":"St Austell","billingZip":"PL25 3DZ","billingProvince":"ENG","billingCountry":"GB","shippingName":"Harrison Butler","shippingCity":"St Austell","shippingZip":"PL25 3DZ","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Natural Grey Marble Soap Dish | Natural Materials & Real Gemstone","price":14.25,"sku":"ssd-05","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1028","email":"ktjwalecki@gmail.com","financialStatus":"paid","paidAt":"2026-06-06 01:20:46 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":16.25,"shipping":0.0,"taxes":0.0,"total":16.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-06 01:20:45 +0100","billingName":"Katie Walecki","billingCity":"Swindon","billingZip":"SN5 5SU","billingProvince":"ENG","billingCountry":"GB","shippingName":"Katie Jasmine Walecki","shippingCity":"Swindon","shippingZip":"SN5 5SU","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Large Round - Patchouli & Dark Amber | Natural | Artisan Soy Candle","price":16.25,"sku":"cwc-01","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1027","email":"sarahtaddei373@gmail.com","financialStatus":"paid","paidAt":"2026-06-05 00:37:54 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":11.25,"shipping":0.0,"taxes":0.0,"total":11.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-05 00:37:54 +0100","billingName":"Sarah Louise Taddei","billingCity":"Tighnabruaich","billingZip":"PA21 2EB","billingProvince":"SCT","billingCountry":"GB","shippingName":"Sarah Taddei","shippingCity":"Cairndow","shippingZip":"PA27 8DH","shippingProvince":"SCT","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"PayPal Express Checkout","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Tarot Cards with Guide Book - Goddess Arcana | Natural","price":11.25,"sku":"tarotc-06","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1026","email":"mparsley991@hotmail.co.uk","financialStatus":"paid","paidAt":"2026-06-04 22:05:06 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":9.5,"shipping":0.0,"taxes":0.0,"total":9.5,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-04 22:05:05 +0100","billingName":"Morgan Parsley","billingCity":"Scothern, West Lindsey","billingZip":"LN2 2UX","billingProvince":"ENG","billingCountry":"GB","shippingName":"Morgan Parsley","shippingCity":"lincoln","shippingZip":"LN4 3AA","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Muscle Ease Massage Oil - 100ml | 100% Natural & Vegan","price":9.5,"sku":"mol-04","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1025","email":"edyta77@hotmail.com","financialStatus":"paid","paidAt":"2026-06-04 14:41:32 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":8.9,"shipping":0.0,"taxes":0.0,"total":8.9,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-04 14:41:32 +0100","billingName":"Edyta Mielziuk","billingCity":"Enfield","billingZip":"EN3 5XG","billingProvince":"ENG","billingCountry":"GB","shippingName":"Edyta Mielziuk","shippingCity":"Edmonton green","shippingZip":"N18 2ER","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Himalayan Bath Salt Blend 500g - Clarity | 100% Natural & Vegan","price":8.9,"sku":"hbaths-02","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1024","email":"antheaKF@virginmedia.com","financialStatus":"paid","paidAt":"2026-06-03 18:59:40 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":6.25,"shipping":0.0,"taxes":0.0,"total":6.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-03 18:59:39 +0100","billingName":"Karen Fonseka","billingCity":"LONDON","billingZip":"NW1 9TY","billingProvince":"ENG","billingCountry":"GB","shippingName":"Karen Fonseka","shippingCity":"LONDON","shippingZip":"NW1 9TY","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"PayPal Express Checkout","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Natural Diffuser Flowers - Rose on Reed | Natural Materials","price":6.25,"sku":"ndiff-10","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1023","email":"jasnanaufal@hotmail.com","financialStatus":"paid","paidAt":"2026-06-03 18:41:47 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":8.5,"shipping":0.0,"taxes":0.0,"total":8.5,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-03 18:41:46 +0100","billingName":"Nassima Naoufal","billingCity":"Epping","billingZip":"CM16 4LW","billingProvince":"ENG","billingCountry":"GB","shippingName":"Nassima Naoufal","shippingCity":"Epping","shippingZip":"CM16 4LW","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Small Altar Brass Bell - Flower of Life | Handmade & Natural Materials","price":8.5,"sku":"abell-06","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1022","email":"wolfiechanalfa@gmail.com","financialStatus":"paid","paidAt":"2026-06-02 19:18:44 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":15.75,"shipping":0.0,"taxes":0.0,"total":15.75,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-02 19:18:44 +0100","billingName":"Izzy Green","billingCity":"Ramsgate","billingZip":"CT11 8PT","billingProvince":"ENG","billingCountry":"GB","shippingName":"Izzy Green","shippingCity":"Ramsgate","shippingZip":"CT11 8PT","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Ametyst Planet on a Sola Goldstone Stand (JUPITER) | Gemstone | 5.5x4cm","price":15.75,"sku":"gempl-02","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1021","email":"alex.george.murray@gmail.com","financialStatus":"paid","paidAt":"2026-06-02 10:12:52 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":10.25,"shipping":0.0,"taxes":0.0,"total":10.25,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-06-02 10:12:52 +0100","billingName":"Alex Murray","billingCity":"Bristol","billingZip":"BS15 8DE","billingProvince":"ENG","billingCountry":"GB","shippingName":"Alex Murray","shippingCity":"Llanwrda","shippingZip":"SA19 8NR","shippingProvince":"WLS","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Three Inch Lingam - 1 Stone | 8x4.5cm | Handmade India","price":10.25,"sku":"ling-03","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1020","email":"rosalyncorner13@gmail.com","financialStatus":"paid","paidAt":"2026-05-31 20:17:20 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":8.75,"shipping":0.0,"taxes":0.0,"total":8.75,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-05-31 20:17:19 +0100","billingName":"Miss Rosalyn D Corner","billingCity":"Lichfield","billingZip":"WS13 2AA","billingProvince":"ENG","billingCountry":"GB","shippingName":"Rosalyn corner","shippingCity":"Lichfield","shippingZip":"WS13 2AA","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Tree of Life Pendant - Jade","price":8.75,"sku":"tolp-06","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1019","email":"jgwatson14@hotmail.com","financialStatus":"paid","paidAt":"2026-05-31 20:04:16 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":12.9,"shipping":0.0,"taxes":0.0,"total":12.9,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-05-31 20:04:15 +0100","billingName":"Jennifer Wallace","billingCity":"Coupar Angus","billingZip":"PH13 9AT","billingProvince":"SCT","billingCountry":"GB","shippingName":"Jennifer Wallace","shippingCity":"Coupar Angus","shippingZip":"PH13 9AT","shippingProvince":"SCT","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"PayPal Express Checkout","refundedAmount":0.0,"vendor":"An\u0101sha","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Jet Black - Vintage Glass - Angel Wings - Earrings","price":12.9,"sku":"vintg-27","fulfillmentStatus":"fulfilled","vendor":"An\u0101sha"}]},{"id":"#AN1008","email":"gillian_hall@btinternet.com","financialStatus":"paid","paidAt":"2026-05-09 17:21:47 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":10.46,"shipping":0.0,"taxes":1.74,"total":10.46,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-05-09 17:21:46 +0100","billingName":"GILLIAN HALL","billingCity":"WARRINGTON","billingZip":"WA4 2QS","billingProvince":"ENG","billingCountry":"GB","shippingName":"GILLIAN HALL","shippingCity":"WARRINGTON","shippingZip":"WA4 2QS","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"PayPal Express Checkout","refundedAmount":0.0,"vendor":"AW Dropship UK","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":2,"name":"Cinnamon Scented Tealights Set Of 6","price":5.23,"sku":"stl-19","fulfillmentStatus":"fulfilled","vendor":"AW Dropship UK"}]},{"id":"#AN1007","email":"oliverhart1999@icloud.com","financialStatus":"refunded","paidAt":"2026-05-04 23:58:02 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":9.88,"shipping":0.0,"taxes":1.65,"total":9.88,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-05-04 23:58:02 +0100","billingName":"Oliver Hart","billingCity":"Tamworth","billingZip":"B78 3UG","billingProvince":"ENG","billingCountry":"GB","shippingName":"Oliver Hart","shippingCity":"Tamworth","shippingZip":"B78 3UG","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":9.88,"vendor":"AW Dropship UK","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"108 Rudraksha Mala - Natural | Handmade","price":9.88,"sku":"rudr-03","fulfillmentStatus":"fulfilled","vendor":"AW Dropship UK"}]},{"id":"#AN1006","email":"allisoncolin2023@gmail.com","financialStatus":"paid","paidAt":"2026-05-04 15:29:27 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":15.84,"shipping":0.0,"taxes":2.64,"total":15.84,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-05-04 15:29:26 +0100","billingName":"Colin Monk","billingCity":"Kilbirnie","billingZip":"KA25 7DQ","billingProvince":"SCT","billingCountry":"GB","shippingName":"Allison Mitchell","shippingCity":"Kilbirnie","shippingZip":"KA25 7DQ","shippingProvince":"SCT","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"AW Dropship UK","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"50g Culinary Matcha Tea | 100% Natural & Vegan","price":15.84,"sku":"arttt-07","fulfillmentStatus":"fulfilled","vendor":"AW Dropship UK"}]},{"id":"#AN1005","email":"snezana123@aol.com","financialStatus":"paid","paidAt":"2026-05-02 19:22:32 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":26.36,"shipping":0.0,"taxes":4.39,"total":26.36,"discountCode":"AN05","discountAmount":1.38,"createdAt":"2026-05-02 19:22:31 +0100","billingName":"Susan Sutovic","billingCity":"Acton","billingZip":"W3 7LX","billingProvince":"ENG","billingCountry":"GB","shippingName":"Susan Sutovic","shippingCity":"Acton","shippingZip":"W3 7LX","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"AW Dropship UK","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Agnes + Cat Lakeland Mocha Scented Candle | Soy Wax","price":27.74,"sku":"acbfc-07","fulfillmentStatus":"fulfilled","vendor":"AW Dropship UK"}]},{"id":"#AN1004","email":"jane.graham3@icloud.com","financialStatus":"paid","paidAt":"2026-05-01 16:59:54 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":15.99,"shipping":0.0,"taxes":2.67,"total":15.99,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-05-01 16:59:54 +0100","billingName":"Jane Graham","billingCity":"Manchester","billingZip":"M21 9DZ","billingProvince":"ENG","billingCountry":"GB","shippingName":"Jane Graham","shippingCity":"Manchester","shippingZip":"M21 9DZ","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"AW Dropship UK","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Glass Infuser Teapot - Round Pearl - 400ml","price":15.99,"sku":"gteap-10","fulfillmentStatus":"fulfilled","vendor":"AW Dropship UK"}]},{"id":"#AN1003","email":"gillian_hall@icloud.com","financialStatus":"expired","paidAt":null,"fulfillmentStatus":"restocked","currency":"GBP","subtotal":15.69,"shipping":0.0,"taxes":2.62,"total":15.69,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-04-30 16:07:57 +0100","billingName":"Gillian Hall","billingCity":"Warrington","billingZip":"WA4 2QS","billingProvince":"ENG","billingCountry":"GB","shippingName":"Gillian Hall","shippingCity":"Warrington","shippingZip":"WA4 2QS","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":"2026-05-01 07:09:50 +0100","paymentMethod":"PayPal Express Checkout","refundedAmount":0.0,"vendor":"AW Dropship UK","outstandingBalance":15.69,"tags":null,"source":"web","lineItems":[{"qty":3,"name":"Cinnamon Scented Tealights Set Of 6","price":5.23,"sku":"stl-19","fulfillmentStatus":"restocked","vendor":"AW Dropship UK"}]},{"id":"#AN1002","email":"miguelteofilosousa05@gmail.com","financialStatus":"paid","paidAt":"2026-04-29 20:22:23 +0100","fulfillmentStatus":"fulfilled","currency":"GBP","subtotal":19.95,"shipping":0.0,"taxes":3.33,"total":19.95,"discountCode":null,"discountAmount":0.0,"createdAt":"2026-04-29 20:22:23 +0100","billingName":"Miguel Sousa","billingCity":"London","billingZip":"DA17 6JP","billingProvince":"ENG","billingCountry":"GB","shippingName":"Miguel Sousa","shippingCity":"London","shippingZip":"DA17 6JP","shippingProvince":"ENG","shippingCountry":"GB","cancelledAt":null,"paymentMethod":"Shopify Payments","refundedAmount":0.0,"vendor":"AW Dropship UK","outstandingBalance":0.0,"tags":null,"source":"web","lineItems":[{"qty":1,"name":"Ametyst Planet on a Sola Goldstone Stand","price":19.95,"sku":"gempl-02","fulfillmentStatus":"fulfilled","vendor":"AW Dropship UK"}]}];const SEED_INVOICES = [{"docNumber":"inv-awd-2618569","type":"invoice","date":"21 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"1.04 kg","deliveryCountry":"United Kingdom","totalNet":16.67,"shipping":2.99,"charges":0.0,"vat":3.33,"total":20.0,"outsideScopeOfTax":false,"lineItems":[{"code":"FHBW-06","desc":"Sandalwood Silk Hand & Body Wash","price":4.25,"qty":1,"amount":4.25},{"code":"WSP-03","desc":"Witch Hazel with Tea Tree 100ml","price":3.24,"qty":1,"amount":3.24},{"code":"FFPO-03","desc":"Daisy Fine Fragrance Perfume Oil 10ml","price":2.23,"qty":1,"amount":2.23},{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"SWMJ-08","desc":"Soywax Melts Jar - Vanilla Nutmeg","price":3.96,"qty":1,"amount":3.96}]},{"docNumber":"inv-awd-2615056","type":"invoice","date":"15 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"124 g","deliveryCountry":"United Kingdom","totalNet":7.79,"shipping":2.99,"charges":0.0,"vat":1.56,"total":9.35,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"Mass-27","desc":"Wormwood Massage Hammer - Lemon","price":2.4,"qty":1,"amount":2.4},{"code":"Mass-28","desc":"Wormwood Massage Hammer - Green","price":2.4,"qty":1,"amount":2.4}]},{"docNumber":"inv-awd-2615122","type":"invoice","date":"15 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"8 g","deliveryCountry":"United Kingdom","totalNet":4.94,"shipping":2.79,"charges":1.0,"vat":0.99,"total":5.93,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"Hanging-AWD","desc":"SOC","price":1.0,"qty":1,"amount":1.0},{"code":"PCards-01","desc":"Memento Mori Gothic Playing & Oracle","price":1.15,"qty":1,"amount":1.15}]},{"docNumber":"inv-awd-2613941","type":"invoice","date":"2 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"12 g","deliveryCountry":"United Kingdom","totalNet":7.59,"shipping":2.79,"charges":0.0,"vat":1.52,"total":9.11,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"VintG-27","desc":"Jet Black - Vintage Glass - Angel Wings -","price":4.8,"qty":1,"amount":4.8}]},{"docNumber":"inv-awd-2613942","type":"invoice","date":"2 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"10 g","deliveryCountry":"United Kingdom","totalNet":6.12,"shipping":2.79,"charges":1.0,"vat":1.22,"total":7.34,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"Hanging-AWD","desc":"SOC","price":1.0,"qty":1,"amount":1.0},{"code":"TOLP-06","desc":"Tree of Life Pendant - Jade","price":2.33,"qty":1,"amount":2.33}]},{"docNumber":"inv-awd-2615093","type":"invoice","date":"15 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"900 g","deliveryCountry":"United Kingdom","totalNet":15.29,"shipping":2.99,"charges":0.0,"vat":3.06,"total":18.35,"outsideScopeOfTax":false,"lineItems":[{"code":"TarotB-08","desc":"Celtic Carved 3 Tier Revolving Box","price":12.3,"qty":1,"amount":12.3},{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99}]},{"docNumber":"inv-awd-2615097","type":"invoice","date":"15 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"930 g","deliveryCountry":"United Kingdom","totalNet":19.25,"shipping":2.99,"charges":0.0,"vat":3.85,"total":23.1,"outsideScopeOfTax":false,"lineItems":[{"code":"AromCFi-09","desc":"Aromatika Charcoal Free Hex Incense -","price":0.38,"qty":1,"amount":0.38},{"code":"Iconic-15","desc":"Iconic Classic Tote Bag - Black Cat -","price":2.22,"qty":1,"amount":2.22},{"code":"StamFP-29","desc":"Egyptian Dragon Premium Incense","price":0.5,"qty":1,"amount":0.5},{"code":"DSHSBS-05","desc":"Handcrafted Soap Slice 100g - Jasmine","price":1.7,"qty":1,"amount":1.7},{"code":"Gter-08","desc":"Small Terrarium on Natural Tung Wood","price":5.1,"qty":1,"amount":5.1},{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"AGemT-09","desc":"Lrg Gemstone Tree - Rose Quartz on","price":6.36,"qty":1,"amount":6.36}]},{"docNumber":"inv-awd-2611935","type":"invoice","date":"11 May 2026","originalInvoice":null,"paymentState":"Paid","weight":"165 g","deliveryCountry":"United Kingdom","totalNet":5.79,"shipping":2.99,"charges":1.0,"vat":1.16,"total":6.95,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"Hanging-AWD","desc":"SOC","price":1.0,"qty":1,"amount":1.0},{"code":"STL-19","desc":"Set of 6 Scented Tealights - Cinnamon","price":0.9,"qty":2,"amount":1.8}]},{"docNumber":"inv-awd-2615112","type":"invoice","date":"15 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"1.2 kg","deliveryCountry":"United Kingdom","totalNet":15.49,"shipping":2.99,"charges":0.0,"vat":3.1,"total":18.59,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"TarotB-11","desc":"Sun & Moon Carved Sliding Box","price":12.5,"qty":1,"amount":12.5}]},{"docNumber":"inv-awd-2614087","type":"invoice","date":"2 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"150 g","deliveryCountry":"United Kingdom","totalNet":6.71,"shipping":2.99,"charges":0.0,"vat":1.34,"total":8.05,"outsideScopeOfTax":false,"lineItems":[{"code":"Ling-03","desc":"Three Inch Lingam - 1 Stone","price":3.72,"qty":1,"amount":3.72},{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99}]},{"docNumber":"inv-awd-2618828","type":"invoice","date":"23 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"1.15 kg","deliveryCountry":"Norway","totalNet":54.79,"shipping":35.0,"charges":0.0,"vat":0.0,"total":54.79,"outsideScopeOfTax":true,"lineItems":[{"code":"Z5","desc":"Zone 5","price":35.0,"qty":1,"amount":35.0},{"code":"AWPO-05","desc":"Ancient Witch Perfume Oil - Lost in","price":5.4,"qty":1,"amount":5.4},{"code":"MSC-02","desc":"Magic Spell Candle - Cleansing","price":5.95,"qty":1,"amount":5.95},{"code":"AWtPC-01","desc":"Ancient Witch Ritual Candles -","price":5.95,"qty":1,"amount":5.95},{"code":"OHS-06","desc":"Organic Hair Serum 30ml -","price":2.49,"qty":1,"amount":2.49}]},{"docNumber":"inv-awd-2611098","type":"invoice","date":"30 April 2026","originalInvoice":null,"paymentState":"Paid","weight":"100 g","deliveryCountry":"United Kingdom","totalNet":10.79,"shipping":2.79,"charges":0.0,"vat":2.16,"total":12.95,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"GemPL-02","desc":"Ametyst Planet on a Sola Goldstone","price":8.0,"qty":1,"amount":8.0}]},{"docNumber":"inv-awd-2614128","type":"invoice","date":"3 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"100 g","deliveryCountry":"United Kingdom","totalNet":10.79,"shipping":2.79,"charges":0.0,"vat":2.16,"total":12.95,"outsideScopeOfTax":false,"lineItems":[{"code":"GemPL-02","desc":"Ametyst Planet on a Sola Goldstone","price":8.0,"qty":1,"amount":8.0},{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79}]},{"docNumber":"inv-awd-2615229","type":"invoice","date":"16 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"270 g","deliveryCountry":"United Kingdom","totalNet":11.39,"shipping":2.99,"charges":0.0,"vat":2.28,"total":13.67,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"NSJB-09","desc":"Nomad Sari Jacquard Natural Nomad","price":8.4,"qty":1,"amount":8.4}]},{"docNumber":"inv-awd-2611246","type":"invoice","date":"5 May 2026","originalInvoice":null,"paymentState":"Paid","weight":"190 g","deliveryCountry":"United Kingdom","totalNet":8.69,"shipping":2.99,"charges":0.0,"vat":1.74,"total":10.43,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"GTeaP-10","desc":"Glass Infuser Teapot - Round Pearl -","price":5.7,"qty":1,"amount":5.7}]},{"docNumber":"inv-awd-2614237","type":"invoice","date":"4 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"6 g","deliveryCountry":"United Kingdom","totalNet":4.69,"shipping":2.79,"charges":1.0,"vat":0.94,"total":5.63,"outsideScopeOfTax":false,"lineItems":[{"code":"Ndiff-10","desc":"Natural Diffuser Flowers - Rose on Reed","price":0.9,"qty":1,"amount":0.9},{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"Hanging-AWD","desc":"SOC","price":1.0,"qty":1,"amount":1.0}]},{"docNumber":"inv-awd-2614232","type":"invoice","date":"4 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"42 g","deliveryCountry":"United Kingdom","totalNet":6.49,"shipping":2.79,"charges":1.0,"vat":1.3,"total":7.79,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"Hanging-AWD","desc":"SOC","price":1.0,"qty":1,"amount":1.0},{"code":"Abell-06","desc":"Small Altar Brass Bell - Flower of Life","price":2.7,"qty":1,"amount":2.7}]},{"docNumber":"inv-awd-2611321","type":"invoice","date":"5 May 2026","originalInvoice":null,"paymentState":"Paid","weight":"800 g","deliveryCountry":"United Kingdom","totalNet":14.94,"shipping":2.99,"charges":0.0,"vat":2.99,"total":17.93,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"ACBFC-07","desc":"Agnes + Cat Botanical Soy Wax Candle","price":11.95,"qty":1,"amount":11.95}]},{"docNumber":"inv-awd-2615342","type":"invoice","date":"17 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"62 g","deliveryCountry":"United Kingdom","totalNet":6.19,"shipping":2.79,"charges":1.0,"vat":1.24,"total":7.43,"outsideScopeOfTax":false,"lineItems":[{"code":"Mass-27","desc":"Wormwood Massage Hammer - Lemon","price":2.4,"qty":1,"amount":2.4},{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"Hanging-AWD","desc":"SOC","price":1.0,"qty":1,"amount":1.0}]},{"docNumber":"inv-awd-2611470","type":"invoice","date":"6 May 2026","originalInvoice":null,"paymentState":"Paid","weight":"1 kg","deliveryCountry":"United Kingdom","totalNet":8.49,"shipping":2.79,"charges":0.0,"vat":1.7,"total":10.19,"outsideScopeOfTax":false,"lineItems":[{"code":"ArtTT-07UK","desc":"50g Culinary Matcha Tea","price":5.7,"qty":1,"amount":5.7},{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79}]},{"docNumber":"inv-awd-2611498","type":"invoice","date":"6 May 2026","originalInvoice":null,"paymentState":"Paid","weight":"19 g","deliveryCountry":"United Kingdom","totalNet":6.44,"shipping":2.79,"charges":1.0,"vat":1.29,"total":7.73,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"Hanging-AWD","desc":"SOC","price":1.0,"qty":1,"amount":1.0},{"code":"RudR-03","desc":"108 Rudraksha Mala - Natural","price":2.65,"qty":1,"amount":2.65}]},{"docNumber":"inv-awd-2614306","type":"invoice","date":"5 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"500 g","deliveryCountry":"United Kingdom","totalNet":6.8,"shipping":2.99,"charges":1.0,"vat":1.36,"total":8.16,"outsideScopeOfTax":false,"lineItems":[{"code":"HBathS-02","desc":"Himalayan Bath Salt Blend 500g -","price":2.81,"qty":1,"amount":2.81},{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"Hanging-AWD","desc":"SOC","price":1.0,"qty":1,"amount":1.0}]},{"docNumber":"inv-awd-2614351","type":"invoice","date":"5 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"111 g","deliveryCountry":"United Kingdom","totalNet":6.17,"shipping":2.99,"charges":0.0,"vat":1.23,"total":7.4,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"MOL-04","desc":"Muscle Ease Massage Oil - 100ml","price":3.18,"qty":1,"amount":3.18}]},{"docNumber":"inv-awd-2614354","type":"invoice","date":"5 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"250 g","deliveryCountry":"United Kingdom","totalNet":7.59,"shipping":2.99,"charges":0.0,"vat":1.52,"total":9.11,"outsideScopeOfTax":false,"lineItems":[{"code":"Z3","desc":"Zone 3","price":2.99,"qty":1,"amount":2.99},{"code":"TarotC-06","desc":"Tarot Cards with Guide Book - Goddess","price":4.6,"qty":1,"amount":4.6}]},{"docNumber":"inv-awd-2614432","type":"invoice","date":"8 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"930 g","deliveryCountry":"United Kingdom","totalNet":11.36,"shipping":2.99,"charges":0.0,"vat":2.27,"total":13.63,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"CWC-01","desc":"Large Round - Patchouli & Dark Amber","price":8.37,"qty":1,"amount":8.37}]},{"docNumber":"inv-awd-2615981","type":"invoice","date":"23 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"75 g","deliveryCountry":"United Kingdom","totalNet":11.32,"shipping":2.79,"charges":0.0,"vat":2.26,"total":13.58,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"TMB-01","desc":"Brass Tibetan Mantra Bracelet - Tree of","price":8.53,"qty":1,"amount":8.53}]},{"docNumber":"inv-awd-2616857","type":"invoice","date":"3 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"900 g","deliveryCountry":"United Kingdom","totalNet":15.29,"shipping":2.99,"charges":0.0,"vat":3.06,"total":18.35,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"TarotB-08","desc":"Celtic Carved 3 Tier Revolving Box","price":12.3,"qty":1,"amount":12.3}]},{"docNumber":"inv-awd-2617079","type":"invoice","date":"6 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"640 g","deliveryCountry":"United Kingdom","totalNet":10.41,"shipping":2.99,"charges":0.0,"vat":2.08,"total":12.49,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"ChkCC-08","desc":"Large Chakra Crystal Candles - Seven","price":7.42,"qty":1,"amount":7.42}]},{"docNumber":"inv-awd-2616168","type":"invoice","date":"25 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"900 g","deliveryCountry":"United Kingdom","totalNet":15.29,"shipping":2.99,"charges":0.0,"vat":3.06,"total":18.35,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"TarotB-08","desc":"Celtic Carved 3 Tier Revolving Box","price":12.3,"qty":1,"amount":12.3}]},{"docNumber":"inv-awd-2614732","type":"invoice","date":"9 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"620 g","deliveryCountry":"United Kingdom","totalNet":9.88,"shipping":2.99,"charges":0.0,"vat":1.98,"total":11.86,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"SSD-05","desc":"Natural Grey Marble Soap Dish","price":6.89,"qty":1,"amount":6.89}]},{"docNumber":"inv-awd-2617018","type":"invoice","date":"6 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"465 g","deliveryCountry":"United Kingdom","totalNet":9.39,"shipping":2.99,"charges":0.0,"vat":1.88,"total":11.27,"outsideScopeOfTax":false,"lineItems":[{"code":"TeaP-26","desc":"Herbal Jade Teapot Set - Pot & Two","price":6.4,"qty":1,"amount":6.4},{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99}]},{"docNumber":"inv-awd-2615966","type":"invoice","date":"23 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"1.2 kg","deliveryCountry":"United Kingdom","totalNet":15.49,"shipping":2.99,"charges":0.0,"vat":3.1,"total":18.59,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"TarotB-11","desc":"Sun & Moon Carved Sliding Box","price":12.5,"qty":1,"amount":12.5}]},{"docNumber":"inv-awd-2616155","type":"invoice","date":"25 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"55 g","deliveryCountry":"United Kingdom","totalNet":7.24,"shipping":2.79,"charges":0.0,"vat":1.45,"total":8.69,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"NSMed-29","desc":"Nomad Sari Aqua Fish Scarf \u2013 Sea Blue","price":4.45,"qty":1,"amount":4.45}]},{"docNumber":"inv-awd-2616336","type":"invoice","date":"29 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"27 g","deliveryCountry":"United Kingdom","totalNet":6.29,"shipping":2.79,"charges":0.0,"vat":1.26,"total":7.55,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"InsB-04","desc":"Inspiration Bracelet - Copper Snrise,","price":3.5,"qty":1,"amount":3.5}]},{"docNumber":"inv-awd-2616344","type":"invoice","date":"29 June 2026","originalInvoice":null,"paymentState":"Paid","weight":"356 g","deliveryCountry":"United Kingdom","totalNet":10.3,"shipping":2.99,"charges":0.0,"vat":2.06,"total":12.36,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"HHC-02","desc":"Hop Hare Crystal Magic Flower Candle -","price":7.31,"qty":1,"amount":7.31}]},{"docNumber":"inv-awd-2617938","type":"invoice","date":"14 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"9 g","deliveryCountry":"United Kingdom","totalNet":5.99,"shipping":2.79,"charges":0.0,"vat":1.2,"total":7.19,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"VintG-08","desc":"Royal Blue - Vintage Glass - Faries -","price":3.2,"qty":1,"amount":3.2}]},{"docNumber":"inv-awd-2617284","type":"invoice","date":"8 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"57 g","deliveryCountry":"United Kingdom","totalNet":5.39,"shipping":2.79,"charges":1.0,"vat":1.08,"total":6.47,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"Hanging-AWD","desc":"SOC","price":1.0,"qty":1,"amount":1.0},{"code":"MeltE-06","desc":"MeltEaze Wax Melts 50g - Emerald","price":1.6,"qty":1,"amount":1.6}]},{"docNumber":"inv-awd-2618392","type":"invoice","date":"20 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"16 g","deliveryCountry":"United Kingdom","totalNet":8.79,"shipping":2.79,"charges":0.0,"vat":1.76,"total":10.55,"outsideScopeOfTax":false,"lineItems":[{"code":"VintG-21","desc":"Soft Pink - Vintage Glass - Long Drop -","price":6.0,"qty":1,"amount":6.0},{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79}]},{"docNumber":"ref-awd-261306","type":"refund","date":"14 July 2026","originalInvoice":"inv-awd-2615966","paymentState":"Paid","weight":"1.2 kg","deliveryCountry":"United Kingdom","totalNet":-12.5,"shipping":0.0,"charges":0.0,"vat":-2.5,"total":-15.0,"outsideScopeOfTax":false,"lineItems":[{"code":"TarotB-11","desc":"Sun & Moon Carved Sliding Box","price":12.5,"qty":-1,"amount":-12.5}]},{"docNumber":"inv-awd-2617512","type":"invoice","date":"9 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"465 g","deliveryCountry":"United Kingdom","totalNet":9.39,"shipping":2.99,"charges":0.0,"vat":1.88,"total":11.27,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"TeaP-26","desc":"Herbal Jade Teapot Set - Pot & Two","price":6.4,"qty":1,"amount":6.4}]},{"docNumber":"inv-awd-2618325","type":"invoice","date":"20 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"200 g","deliveryCountry":"United Kingdom","totalNet":11.86,"shipping":2.99,"charges":0.0,"vat":2.37,"total":14.23,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"LSF-03","desc":"Soap Flower Bouquet - Lavender Rose &","price":8.87,"qty":1,"amount":8.87}]},{"docNumber":"inv-awd-2618328","type":"invoice","date":"20 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"410 g","deliveryCountry":"United Kingdom","totalNet":14.36,"shipping":2.99,"charges":0.0,"vat":2.87,"total":17.23,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"ArtTT-21UK","desc":"50g Classic Green Tea with Lemon and","price":4.55,"qty":1,"amount":4.55},{"code":"GTeaP-01","desc":"Glass Infuser Teapot - Tower Shape -","price":6.82,"qty":1,"amount":6.82}]},{"docNumber":"inv-awd-2618333","type":"invoice","date":"20 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"892 g","deliveryCountry":"United Kingdom","totalNet":24.74,"shipping":2.99,"charges":0.0,"vat":4.95,"total":29.69,"outsideScopeOfTax":false,"lineItems":[{"code":"VintG-15","desc":"Lavender - Vintage Glass - Loop -","price":3.1,"qty":1,"amount":3.1},{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"NSOTB-02","desc":"Oversized Tote Bag Chocolate","price":7.25,"qty":1,"amount":7.25},{"code":"CottMB-08","desc":"Cotton Canvas Laptop Messenger Bag -","price":11.4,"qty":1,"amount":11.4}]},{"docNumber":"inv-awd-2618332","type":"invoice","date":"20 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"29 g","deliveryCountry":"United Kingdom","totalNet":4.32,"shipping":2.79,"charges":1.0,"vat":0.86,"total":5.18,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"Hanging-AWD","desc":"SOC","price":1.0,"qty":1,"amount":1.0},{"code":"StamC-20","desc":"Citronella & Lemongrass Incense Cones","price":0.53,"qty":1,"amount":0.53}]},{"docNumber":"inv-awd-2617585","type":"invoice","date":"10 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"405 g","deliveryCountry":"United Kingdom","totalNet":12.89,"shipping":2.99,"charges":0.0,"vat":2.58,"total":15.47,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"TarotC-02","desc":"Gold Foil Tarot Set with Book - Gift Box","price":9.9,"qty":1,"amount":9.9}]},{"docNumber":"inv-awd-2618096","type":"invoice","date":"15 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"969 g","deliveryCountry":"United Kingdom","totalNet":10.99,"shipping":2.99,"charges":0.0,"vat":2.2,"total":13.19,"outsideScopeOfTax":false,"lineItems":[{"code":"FHBL-06","desc":"Sandalwood Silk Lotion 300ml","price":3.75,"qty":1,"amount":3.75},{"code":"FHBW-06","desc":"Sandalwood Silk Hand & Body Wash","price":4.25,"qty":1,"amount":4.25},{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99}]},{"docNumber":"inv-awd-2617610","type":"invoice","date":"10 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"550 g","deliveryCountry":"United Kingdom","totalNet":13.82,"shipping":2.99,"charges":0.0,"vat":2.76,"total":16.58,"outsideScopeOfTax":false,"lineItems":[{"code":"SSD-04","desc":"Natural Honey Onxy Soap Dish","price":10.83,"qty":1,"amount":10.83},{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99}]},{"docNumber":"inv-awd-2617615","type":"invoice","date":"10 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"26 g","deliveryCountry":"United Kingdom","totalNet":8.19,"shipping":2.79,"charges":0.0,"vat":1.64,"total":9.83,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"GemF-56","desc":"Gemstone Lucky Elephant - Amethyst","price":5.4,"qty":1,"amount":5.4}]},{"docNumber":"inv-awd-2617643","type":"invoice","date":"13 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"242 g","deliveryCountry":"United Kingdom","totalNet":13.19,"shipping":2.99,"charges":0.0,"vat":2.64,"total":15.83,"outsideScopeOfTax":false,"lineItems":[{"code":"HempB-42","desc":"Hemp Embroidery Mushroom Party Bag","price":10.2,"qty":1,"amount":10.2},{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99}]},{"docNumber":"inv-awd-2617682","type":"invoice","date":"13 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"100 g","deliveryCountry":"United Kingdom","totalNet":5.59,"shipping":2.79,"charges":1.0,"vat":1.12,"total":6.71,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.79,"qty":1,"amount":2.79},{"code":"Hanging-AWD","desc":"SOC","price":1.0,"qty":1,"amount":1.0},{"code":"OCards-02","desc":"Ethereal Waters Oracle Cards - Sirens &","price":1.8,"qty":1,"amount":1.8}]},{"docNumber":"inv-awd-2617789","type":"invoice","date":"13 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"110 g","deliveryCountry":"United Kingdom","totalNet":16.19,"shipping":2.99,"charges":0.0,"vat":3.24,"total":19.43,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"NSMed-19","desc":"Nomad Sari Turquoise & Gold Coral","price":13.2,"qty":1,"amount":13.2}]},{"docNumber":"inv-awd-2617811","type":"invoice","date":"14 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"110 g","deliveryCountry":"United Kingdom","totalNet":16.19,"shipping":2.99,"charges":0.0,"vat":3.24,"total":19.43,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"NSMed-22","desc":"Nomad Sari Sea Blue & Gold Fish Print","price":13.2,"qty":1,"amount":13.2}]},{"docNumber":"inv-awd-2618450","type":"invoice","date":"20 July 2026","originalInvoice":null,"paymentState":"Paid","weight":"122 g","deliveryCountry":"United Kingdom","totalNet":19.54,"shipping":2.99,"charges":0.0,"vat":3.91,"total":23.45,"outsideScopeOfTax":false,"lineItems":[{"code":"Z1","desc":"Zone 1","price":2.99,"qty":1,"amount":2.99},{"code":"NSMed-03","desc":"Nomad Sari Pareo \u2013 Turquoise & Gold","price":5.1,"qty":1,"amount":5.1},{"code":"TSJ-06","desc":"Temple String Bracelet - Endless","price":11.45,"qty":1,"amount":11.45}]}];/* ============================================================
+   TATSATITI LEDGER — Dashboard tab
+   ============================================================ */
+
+const VAT_THRESHOLD = 90000;
+
+function rollingTurnover12mo(orders){
+  const now = new Date();
+  const cutoff = addMonths(now, -12);
+  return activeOrders(orders).reduce((s,o) => {
+    const d = getOrderDate(o);
+    if (d && d >= cutoff && d <= now) return s + (o.total||0) - (o.refundedAmount||0);
+    return s;
+  }, 0);
+}
+
+function renderDashboard(){
+  const range = currentRange();
+  const kpi = computeKPIs(STATE.orders, STATE.invoices, range);
+  const series = monthlySeries(STATE.orders, STATE.invoices).slice(-12);
+  const turnover12 = rollingTurnover12mo(STATE.orders);
+  const pctToThreshold = Math.min(100, (turnover12 / VAT_THRESHOLD) * 100);
+  const ch = computeCompaniesHouseDates(STATE.company);
+
+  const recentOrders = [...activeOrders(STATE.orders)]
+    .sort((a,b) => (getOrderDate(b)||0) - (getOrderDate(a)||0)).slice(0,6);
+  const recentInvoices = [...STATE.invoices]
+    .sort((a,b) => (getInvoiceDate(b)||0) - (getInvoiceDate(a)||0)).slice(0,6);
+
+  let upcoming = [];
+  if (ch){
+    upcoming = [
+      { label:'Confirmation statement due', date: ch.confirmationDue },
+      { label:'Annual accounts due', date: ch.firstAccountsDue },
+      { label:'Corporation Tax return due', date: ch.ctReturnDue },
+      { label:'Corporation Tax payment due', date: ch.ctPaymentDue },
+    ].filter(x => x.date && x.date > new Date()).sort((a,b) => a.date - b.date).slice(0,2);
+  }
+
+  const el = document.getElementById('tab-dashboard');
+  el.innerHTML = `
+    <div class="ledger-strip"><span class="dot"></span> ${escapeHtml(STATE.company.name)} &middot; Company No. ${escapeHtml(STATE.company.number)} &middot; ${kpi.invoiceCount + kpi.ordersCount ? 'live ledger' : 'no data yet'}</div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="lbl">Revenue</div>
+        <div class="val">${fmtGBP(kpi.revenue)}</div>
+        <div class="sub">${fmtNum(kpi.ordersCount)} orders &middot; AOV ${fmtGBP(kpi.aov)}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="lbl">Cost of goods</div>
+        <div class="val">${fmtGBP(kpi.cogs)}</div>
+        <div class="sub">${fmtNum(kpi.invoiceCount)} supplier invoices</div>
+      </div>
+      <div class="kpi-card">
+        <div class="lbl">Gross profit</div>
+        <div class="val">${fmtGBP(kpi.grossProfit)}</div>
+        <div class="sub ${kpi.margin!==null && kpi.margin>=0 ? 'pos':'neg'}">${kpi.margin!==null ? fmtPct(kpi.margin)+' margin' : '\u2014'}</div>
+      </div>
+      <div class="kpi-card">
+        <div class="lbl">Customers</div>
+        <div class="val">${fmtNum(kpi.uniqueCustomers)}</div>
+        <div class="sub">across selected period</div>
+      </div>
+      <div class="kpi-card">
+        <div class="lbl">Irrecoverable input VAT</div>
+        <div class="val">${fmtGBP(kpi.inputVAT)}</div>
+        <div class="sub">paid to suppliers${STATE.company.vatRegistered ? '' : ' \u2014 not reclaimable yet'}</div>
+        <div class="seal">%</div>
+      </div>
+      <div class="kpi-card">
+        <div class="lbl">Refunds issued</div>
+        <div class="val">${fmtGBP(kpi.refunds)}</div>
+        <div class="sub">cost-side refunds from supplier</div>
+      </div>
+    </div>
+
+    <div class="panel-row two">
+      <div class="card">
+        <div class="card-h">
+          <h3>Revenue, cost &amp; profit by month</h3>
+          <div class="note">Last 12 active months</div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartDashTrend"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-h">
+          <h3>VAT registration threshold</h3>
+          <div class="note">rolling 12 months</div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:6px;">
+            <span class="mono">${fmtGBP(turnover12)}</span>
+            <span class="muted mono">${fmtGBP(VAT_THRESHOLD)} threshold</span>
+          </div>
+          <div style="height:10px; background:var(--border-soft); border-radius:6px; overflow:hidden;">
+            <div style="height:100%; width:${pctToThreshold}%; background:${pctToThreshold>85?'var(--negative)':'var(--accent)'}; border-radius:6px;"></div>
+          </div>
+        </div>
+        <p class="muted" style="font-size:12px; line-height:1.6;">
+          You must register for VAT within 30 days of your rolling 12-month turnover exceeding
+          ${fmtGBP(VAT_THRESHOLD)}, or if you expect to exceed it in the next 30 days alone. Currently
+          <strong>${STATE.company.vatRegistered ? 'registered' : 'not registered'}</strong>.
+        </p>
+        <div class="card-h" style="margin-top:16px;"><h3 style="font-size:13.5px;">Next filing deadlines</h3></div>
+        ${upcoming.length ? upcoming.map(u => `
+          <div class="stat-line"><span class="k">${escapeHtml(u.label)}</span><span class="v">${fmtDateShort(u.date)}</span></div>
+        `).join('') : '<div class="muted" style="font-size:12px;">Set an incorporation date in Company &amp; Data to see deadlines.</div>'}
+      </div>
+    </div>
+
+    <div class="panel-row two">
+      <div class="card">
+        <div class="card-h"><h3>Recent orders</h3><div class="note">${kpi.ordersCount} in range</div></div>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th class="num">Total</th></tr></thead>
+          <tbody>
+          ${recentOrders.length ? recentOrders.map(o => `
+            <tr>
+              <td class="mono">${escapeHtml(o.id)}</td>
+              <td>${escapeHtml(o.billingName||o.shippingName||'\u2014')}</td>
+              <td class="muted">${fmtDateShort(getOrderDate(o))}</td>
+              <td class="num">${fmtGBP(o.total)}</td>
+            </tr>`).join('') : '<tr><td colspan="4" class="muted">No orders yet \u2014 import a Shopify CSV on the Sales tab.</td></tr>'}
+          </tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Recent supplier invoices</h3><div class="note">${kpi.invoiceCount} in range</div></div>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Invoice</th><th>Date</th><th class="num">Net</th><th class="num">Total</th></tr></thead>
+          <tbody>
+          ${recentInvoices.length ? recentInvoices.map(i => `
+            <tr>
+              <td class="mono">${escapeHtml(i.docNumber)}${i.type==='refund' ? ' <span class="tag due">refund</span>' : ''}</td>
+              <td class="muted">${fmtDateShort(getInvoiceDate(i))}</td>
+              <td class="num">${fmtGBP(i.totalNet)}</td>
+              <td class="num">${fmtGBP(i.total)}</td>
+            </tr>`).join('') : '<tr><td colspan="4" class="muted">No invoices yet \u2014 import supplier invoices on the Purchases tab.</td></tr>'}
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+  `;
+
+  if (series.length){
+    makeChart('chartDashTrend', {
+      type: 'bar',
+      data: {
+        labels: series.map(s => s.label),
+        datasets: [
+          { type:'bar', label:'Revenue', data: series.map(s=>s.revenue), backgroundColor: CHART_COLORS.bar1, borderRadius:4, order:2 },
+          { type:'bar', label:'COGS', data: series.map(s=>s.cogs), backgroundColor: CHART_COLORS.bar2, borderRadius:4, order:2 },
+          { type:'line', label:'Profit', data: series.map(s=>s.profit), borderColor: CHART_COLORS.positive, backgroundColor:'transparent', tension:0.35, order:1, pointRadius:3 },
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        interaction:{ mode:'index', intersect:false },
+        plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ family:'Inter', size:11 } } } },
+        scales:{
+          x:{ grid:{ display:false }, ticks:{ font:{ family:'Inter', size:10.5 } } },
+          y:{ grid:{ color: CHART_COLORS.gridLine }, ticks:{ font:{ family:'IBM Plex Mono', size:10 }, callback:v=>'\u00A3'+v } }
+        }
+      }
+    });
+  }
+}
+/* ============================================================
+   TATSATITI LEDGER — Profit & Loss tab
+   ============================================================ */
+
+function expensesInRange(range){
+  return STATE.expenses.filter(e => inRange(parseDateLoose(e.date), range));
+}
+
+function renderPL(){
+  const range = currentRange();
+  const pl = computePL(STATE.orders, STATE.invoices, range);
+  const exps = expensesInRange(range);
+  const totalExpenses = exps.reduce((s,e) => s + (e.amount||0), 0);
+  const netProfit = pl.grossProfit - totalExpenses;
+  const netMarginPct = pl.revenue ? (netProfit/pl.revenue*100) : null;
+
+  const el = document.getElementById('tab-pl');
+  el.innerHTML = `
+    <div class="panel-row three">
+      <div class="kpi-card"><div class="lbl">Revenue</div><div class="val">${fmtGBP(pl.revenue)}</div><div class="sub">${pl.orderCount} orders</div></div>
+      <div class="kpi-card"><div class="lbl">Cost of goods sold</div><div class="val">${fmtGBP(pl.cogs)}</div><div class="sub">${pl.invoiceCount} supplier invoices</div></div>
+      <div class="kpi-card"><div class="lbl">Gross profit</div><div class="val">${fmtGBP(pl.grossProfit)}</div><div class="sub ${pl.marginPct>=0?'pos':'neg'}">${pl.marginPct!==null?fmtPct(pl.marginPct):'\u2014'} gross margin</div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <h3>Monthly income statement</h3>
+        <div class="note">Revenue &minus; COGS = Gross profit, by month</div>
+      </div>
+      <div class="chart-wrap"><canvas id="chartPL"></canvas></div>
+    </div>
+
+    <div class="panel-row two">
+      <div class="card">
+        <div class="card-h"><h3>Monthly breakdown</h3></div>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Month</th><th class="num">Revenue</th><th class="num">COGS</th><th class="num">Gross profit</th><th class="num">Margin</th></tr></thead>
+          <tbody>
+          ${pl.rows.length ? pl.rows.map(r => `
+            <tr>
+              <td>${r.label}</td>
+              <td class="num">${fmtGBP(r.revenue)}</td>
+              <td class="num">${fmtGBP(r.cogs)}</td>
+              <td class="num">${fmtGBP(r.profit)}</td>
+              <td class="num">${r.revenue ? fmtPct(r.profit/r.revenue*100) : '\u2014'}</td>
+            </tr>`).join('') : '<tr><td colspan="5" class="muted">No data in this range.</td></tr>'}
+          </tbody>
+          <tfoot>
+            <tr style="font-weight:700; border-top:2px solid var(--border);">
+              <td>Total</td>
+              <td class="num">${fmtGBP(pl.revenue)}</td>
+              <td class="num">${fmtGBP(pl.cogs)}</td>
+              <td class="num">${fmtGBP(pl.grossProfit)}</td>
+              <td class="num">${pl.marginPct!==null?fmtPct(pl.marginPct):'\u2014'}</td>
+            </tr>
+          </tfoot>
+        </table></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Operating expenses</h3><div class="note">optional, to reach net profit</div></div>
+        <form id="expenseForm">
+          <div class="field-row">
+            <div class="field"><label>Date</label><input type="date" id="expDate" required></div>
+            <div class="field"><label>Amount (£)</label><input type="number" id="expAmount" step="0.01" min="0" required></div>
+          </div>
+          <div class="field"><label>Category</label>
+            <select id="expCategory">
+              <option>Software &amp; subscriptions</option>
+              <option>Advertising &amp; marketing</option>
+              <option>Bank &amp; payment fees</option>
+              <option>Postage &amp; packaging</option>
+              <option>Professional fees</option>
+              <option>Office &amp; admin</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Description</label><input type="text" id="expDesc" placeholder="e.g. Shopify subscription"></div>
+          <button type="submit" class="pill-btn" style="width:100%;">Add expense</button>
+        </form>
+        <div class="table-scroll" style="margin-top:14px;"><table>
+          <thead><tr><th>Date</th><th>Category</th><th class="num">Amount</th><th></th></tr></thead>
+          <tbody>
+          ${exps.length ? exps.sort((a,b)=>new Date(b.date)-new Date(a.date)).map(e => `
+            <tr>
+              <td class="muted">${fmtDateShort(parseDateLoose(e.date))}</td>
+              <td>${escapeHtml(e.category)}${e.description ? '<div class="muted" style="font-size:10.5px;">'+escapeHtml(e.description)+'</div>' : ''}</td>
+              <td class="num">${fmtGBP(e.amount)}</td>
+              <td><button class="pill-btn ghost small" data-del-exp="${e.id}">Remove</button></td>
+            </tr>`).join('') : '<tr><td colspan="4" class="muted">No expenses logged in this range.</td></tr>'}
+          </tbody>
+        </table></div>
+        <div class="stat-line" style="margin-top:8px;"><span class="k">Total operating expenses</span><span class="v">${fmtGBP(totalExpenses)}</span></div>
+        <div class="stat-line"><span class="k">Net profit</span><span class="v" style="color:${netProfit>=0?'var(--positive)':'var(--negative)'}">${fmtGBP(netProfit)}</span></div>
+        <div class="stat-line"><span class="k">Net margin</span><span class="v">${netMarginPct!==null?fmtPct(netMarginPct):'\u2014'}</span></div>
+        <div class="disclaimer">This is a management P&amp;L built from your sales and supplier data plus whatever expenses you log here \u2014 it isn't a substitute for statutory accounts prepared under UK GAAP/FRS 105 for Companies House and HMRC filings.</div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('expenseForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const date = document.getElementById('expDate').value;
+    const amount = parseFloat(document.getElementById('expAmount').value);
+    const category = document.getElementById('expCategory').value;
+    const description = document.getElementById('expDesc').value;
+    if (!date || isNaN(amount)) return;
+    STATE.expenses.push({ id: uid('exp'), date, amount, category, description });
+    await persistExpenses();
+    toast('Expense added');
+    renderPL();
+  });
+  el.querySelectorAll('[data-del-exp]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      STATE.expenses = STATE.expenses.filter(x => x.id !== btn.dataset.delExp);
+      await persistExpenses();
+      toast('Expense removed');
+      renderPL();
+    });
+  });
+
+  if (pl.rows.length){
+    makeChart('chartPL', {
+      type: 'bar',
+      data: {
+        labels: pl.rows.map(r => r.label),
+        datasets: [
+          { label:'Revenue', data: pl.rows.map(r=>r.revenue), backgroundColor: CHART_COLORS.bar1, borderRadius:4 },
+          { label:'COGS', data: pl.rows.map(r=>r.cogs), backgroundColor: CHART_COLORS.bar2, borderRadius:4 },
+          { label:'Gross profit', data: pl.rows.map(r=>r.profit), backgroundColor: CHART_COLORS.positive, borderRadius:4 },
+        ]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ family:'Inter', size:11 } } } },
+        scales:{
+          x:{ grid:{ display:false }, ticks:{ font:{ family:'Inter', size:10.5 } } },
+          y:{ grid:{ color: CHART_COLORS.gridLine }, ticks:{ font:{ family:'IBM Plex Mono', size:10 }, callback:v=>'\u00A3'+v } }
+        }
+      }
+    });
+  }
+}
+/* ============================================================
+   TATSATITI LEDGER — VAT tab
+   ============================================================ */
+
+function renderVAT(){
+  const range = currentRange();
+  const vat = computeVATReturn(STATE.orders, STATE.invoices, range);
+  const reg = STATE.company.vatRegistered;
+  const turnover12 = rollingTurnover12mo(STATE.orders);
+
+  const invRows = filterInvoices(STATE.invoices, range).sort((a,b) => (getInvoiceDate(b)||0)-(getInvoiceDate(a)||0));
+
+  const el = document.getElementById('tab-vat');
+  el.innerHTML = `
+    <div class="card" style="display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;">
+      <div>
+        <div style="font-family:var(--font-display); font-size:16px; font-weight:600; color:var(--ink);">
+          ${reg ? 'VAT registered' : 'Not currently VAT registered'}
+        </div>
+        <div class="muted" style="font-size:12.5px; margin-top:3px;">
+          VAT number on file: <span class="mono">GB${escapeHtml(STATE.company.vatNumber||'\u2014')}</span> &middot;
+          Rolling 12-month turnover: <span class="mono">${fmtGBP(turnover12)}</span> of ${fmtGBP(VAT_THRESHOLD)} threshold
+        </div>
+      </div>
+      <span class="tag ${reg ? 'paid' : 'neutral'}">${reg ? 'Registered' : 'Voluntary / not registered'}</span>
+    </div>
+
+    <div class="panel-row two">
+      <div class="card">
+        <div class="card-h"><h3>Simulated VAT return</h3><div class="note">for selected period</div></div>
+        <div class="stat-line"><span class="k">Box 1 &middot; VAT due on sales (output tax)</span><span class="v">${fmtGBP(vat.outputVAT)}</span></div>
+        <div class="stat-line"><span class="k">Box 4 &middot; VAT reclaimed on purchases (input tax)</span><span class="v">${fmtGBP(reg ? vat.inputVAT : 0)}</span></div>
+        <div class="stat-line"><span class="k">Box 5 &middot; Net VAT ${(vat.outputVAT - (reg?vat.inputVAT:0))>=0 ? 'due to HMRC' : 'reclaimable'}</span>
+          <span class="v">${fmtGBP(Math.abs(vat.outputVAT - (reg?vat.inputVAT:0)))}</span></div>
+        <div class="stat-line"><span class="k">Box 6 &middot; Total sales excl. VAT</span><span class="v">${fmtGBP(vat.box6)}</span></div>
+        <div class="stat-line"><span class="k">Box 7 &middot; Total purchases excl. VAT</span><span class="v">${fmtGBP(vat.box7)}</span></div>
+        <div class="disclaimer">
+          ${reg
+            ? 'This mirrors the HMRC VAT Return box layout using your ledger data. File the real return through your HMRC online account or MTD-compatible software \u2014 this is a reference figure, not a submission.'
+            : 'You are not registered, so no output VAT is being charged on sales and input VAT paid to suppliers cannot currently be reclaimed \u2014 it sits in your cost of goods sold instead. This panel shows what the return would look like if you were registered, for planning purposes.'}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Input VAT paid to suppliers</h3><div class="note">${fmtGBP(vat.inputVAT)} total in period</div></div>
+        <div class="chart-wrap short"><canvas id="chartVAT"></canvas></div>
+        <p class="muted" style="font-size:12px; margin-top:10px; line-height:1.6;">
+          Once you register, HMRC lets you backdate reclaims on goods you still hold, bought up to 4 years before registration,
+          and on services received up to 6 months before \u2014 keep these supplier invoices on file.
+        </p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <h3>Invoice-level VAT detail</h3>
+        <div class="note">${invRows.length} document${invRows.length===1?'':'s'} in period</div>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Document</th><th>Type</th><th>Date</th><th class="num">Net</th><th class="num">VAT</th><th class="num">Total</th><th>Note</th></tr></thead>
+        <tbody>
+        ${invRows.length ? invRows.map(i => `
+          <tr>
+            <td class="mono">${escapeHtml(i.docNumber)}</td>
+            <td><span class="tag ${i.type==='refund'?'due':'grey'}">${i.type}</span></td>
+            <td class="muted">${fmtDateShort(getInvoiceDate(i))}</td>
+            <td class="num">${fmtGBP(i.totalNet)}</td>
+            <td class="num">${fmtGBP(i.vat)}</td>
+            <td class="num">${fmtGBP(i.total)}</td>
+            <td class="muted" style="font-size:11.5px;">${i.outsideScopeOfTax ? 'Outside scope of VAT (export)' : ''}</td>
+          </tr>`).join('') : '<tr><td colspan="7" class="muted">No supplier invoices in this range.</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>
+  `;
+
+  const monthly = monthlySeries(activeOrders(STATE.orders).filter(o => inRange(getOrderDate(o), range)), filterInvoices(STATE.invoices, range));
+  if (monthly.length){
+    const vatByMonth = {};
+    filterInvoices(STATE.invoices, range).forEach(i => {
+      const k = monthKey(getInvoiceDate(i));
+      vatByMonth[k] = (vatByMonth[k]||0) + (i.vat||0);
+    });
+    const keys = Object.keys(vatByMonth).sort();
+    makeChart('chartVAT', {
+      type:'bar',
+      data:{ labels: keys.map(monthLabel), datasets:[{ label:'Input VAT', data: keys.map(k=>vatByMonth[k]), backgroundColor: CHART_COLORS.accent, borderRadius:4 }] },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:false } },
+        scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Inter',size:10}} }, y:{ grid:{color:CHART_COLORS.gridLine}, ticks:{font:{family:'IBM Plex Mono',size:10}, callback:v=>'\u00A3'+v} } }
+      }
+    });
+  }
+}
+/* ============================================================
+   TATSATITI LEDGER — Sales & Orders tab
+   ============================================================ */
+
+let salesSearchTerm = '';
+let salesExpanded = {};
+
+function renderSales(){
+  const range = currentRange();
+  const ords = filterOrders(STATE.orders, range)
+    .filter(o => {
+      if (!salesSearchTerm) return true;
+      const t = salesSearchTerm.toLowerCase();
+      return (o.id||'').toLowerCase().includes(t) || (o.billingName||'').toLowerCase().includes(t) || (o.email||'').toLowerCase().includes(t);
+    })
+    .sort((a,b) => (getOrderDate(b)||0) - (getOrderDate(a)||0));
+
+  const el = document.getElementById('tab-sales');
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-h"><h3>Import Shopify orders</h3><div class="note">upload your orders export CSV</div></div>
+      <div class="import-drop" id="ordersDropZone">
+        <div style="font-size:22px; margin-bottom:6px;">&#8593;</div>
+        Export orders from Shopify (Orders &rarr; Export) then drop the <span class="mono">.csv</span> file here, or
+        <label for="ordersCsvFile" style="color:var(--accent); font-weight:600; cursor:pointer; text-decoration:underline;">browse to choose it</label>.
+        Existing orders with the same order number are updated, not duplicated.
+        <input type="file" id="ordersCsvFile" accept=".csv,text/csv" style="display:none;">
+      </div>
+      <div class="btn-row" style="margin-top:6px;">
+        <button class="pill-btn ghost small" id="toggleOrdersPaste">Paste CSV text instead</button>
+        <button class="pill-btn ghost small" id="exportOrdersBtn">Export current orders (JSON)</button>
+      </div>
+      <div id="ordersPasteBox" style="display:none; margin-top:10px;">
+        <textarea id="ordersCsvInput" rows="5" placeholder="Name,Email,Financial Status,Paid at,...  (paste full CSV here)"></textarea>
+        <button class="pill-btn" id="importOrdersBtn" style="margin-top:8px;">Parse &amp; import pasted text</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <h3>Orders</h3>
+        <div class="btn-row">
+          <div class="search-box"><span>&#128269;</span><input type="text" id="salesSearch" placeholder="Search order, name, email&hellip;" value="${escapeHtml(salesSearchTerm)}"></div>
+          <div class="note">${ords.length} order${ords.length===1?'':'s'}</div>
+        </div>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr><th></th><th>Order</th><th>Customer</th><th>Date</th><th>Status</th><th class="num">Items</th><th class="num">Shipping</th><th class="num">Total</th></tr></thead>
+        <tbody>
+        ${ords.length ? ords.map(o => {
+          const expanded = !!salesExpanded[o.id];
+          return `
+          <tr data-order-row="${escapeHtml(o.id)}" style="cursor:pointer;">
+            <td>${expanded ? '&#9662;' : '&#9656;'}</td>
+            <td class="mono">${escapeHtml(o.id)}${o.cancelledAt ? ' <span class="tag due">cancelled</span>' : ''}</td>
+            <td>${escapeHtml(o.billingName||o.shippingName||'\u2014')}<div class="muted" style="font-size:10.5px;">${escapeHtml(o.shippingCity||'')}${o.shippingCountry?', '+escapeHtml(o.shippingCountry):''}</div></td>
+            <td class="muted">${fmtDateShort(getOrderDate(o))}</td>
+            <td><span class="tag ${o.financialStatus==='paid'?'paid':'grey'}">${escapeHtml(o.financialStatus||'\u2014')}</span></td>
+            <td class="num">${(o.lineItems||[]).reduce((s,li)=>s+(li.qty||0),0)}</td>
+            <td class="num">${fmtGBP(o.shipping)}</td>
+            <td class="num">${fmtGBP(o.total)}</td>
+          </tr>
+          ${expanded ? `<tr><td></td><td colspan="7" style="background:#FAF9F3;">
+            <table style="width:100%;">
+              <thead><tr><th>SKU</th><th>Item</th><th class="num">Qty</th><th class="num">Price</th></tr></thead>
+              <tbody>${(o.lineItems||[]).map(li => `<tr><td class="mono muted">${escapeHtml(li.sku||'\u2014')}</td><td>${escapeHtml(li.name)}</td><td class="num">${li.qty}</td><td class="num">${fmtGBP(li.price)}</td></tr>`).join('')}</tbody>
+            </table>
+          </td></tr>` : ''}
+          `;
+        }).join('') : '<tr><td colspan="8" class="muted" style="text-align:center; padding:24px;">No orders in this range. Import a CSV above to get started.</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>
+  `;
+
+  el.querySelectorAll('[data-order-row]').forEach(row => {
+    row.addEventListener('click', () => {
+      const id = row.dataset.orderRow;
+      salesExpanded[id] = !salesExpanded[id];
+      renderSales();
+    });
+  });
+
+  document.getElementById('salesSearch').addEventListener('input', (e) => {
+    salesSearchTerm = e.target.value;
+    renderSales();
+  });
+
+  async function importOrdersCsvText(text, sourceLabel){
+    if (!text || !text.trim()){ toast('That CSV looked empty'); return; }
+    try{
+      const parsed = parseShopifyOrdersCSV(text);
+      if (!parsed.length){ toast('No orders found in ' + (sourceLabel||'that file')); return; }
+      const { list, added, updated } = mergeOrders(STATE.orders, parsed);
+      STATE.orders = list;
+      await persistOrders();
+      toast(`Imported: ${added} new, ${updated} updated`);
+      renderSales();
+    }catch(err){
+      console.error(err);
+      toast('Could not parse that CSV \u2014 check the format');
+    }
+  }
+
+  document.getElementById('importOrdersBtn').addEventListener('click', () => {
+    const text = document.getElementById('ordersCsvInput').value;
+    importOrdersCsvText(text).then(() => { document.getElementById('ordersCsvInput').value = ''; });
+  });
+
+  document.getElementById('toggleOrdersPaste').addEventListener('click', () => {
+    const box = document.getElementById('ordersPasteBox');
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  });
+
+  const ordersFileInput = document.getElementById('ordersCsvFile');
+  ordersFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    toast('Reading ' + file.name + '\u2026');
+    try{
+      const text = await readFileAsText(file);
+      await importOrdersCsvText(text, file.name);
+    }catch(err){
+      console.error(err);
+      toast('Could not read that file');
+    }
+    ordersFileInput.value = '';
+  });
+
+  const dropZone = document.getElementById('ordersDropZone');
+  ['dragover','dragenter'].forEach(evt => dropZone.addEventListener(evt, (e) => {
+    e.preventDefault(); dropZone.style.borderColor = 'var(--accent)'; dropZone.style.background = 'var(--accent-soft)';
+  }));
+  ['dragleave','drop'].forEach(evt => dropZone.addEventListener(evt, (e) => {
+    e.preventDefault(); dropZone.style.borderColor = ''; dropZone.style.background = '';
+  }));
+  dropZone.addEventListener('drop', async (e) => {
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    toast('Reading ' + file.name + '\u2026');
+    try{
+      const text = await readFileAsText(file);
+      await importOrdersCsvText(text, file.name);
+    }catch(err){
+      console.error(err);
+      toast('Could not read that file');
+    }
+  });
+
+  document.getElementById('exportOrdersBtn').addEventListener('click', () => {
+    downloadJSON('tatsatiti-orders.json', STATE.orders);
+  });
+}
+
+function downloadJSON(filename, data){
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+/* ============================================================
+   TATSATITI LEDGER — Purchases & Invoices tab
+   ============================================================ */
+
+let purchSearchTerm = '';
+let purchExpanded = {};
+
+function renderPurchases(){
+  const range = currentRange();
+  const invs = filterInvoices(STATE.invoices, range)
+    .filter(i => {
+      if (!purchSearchTerm) return true;
+      const t = purchSearchTerm.toLowerCase();
+      return (i.docNumber||'').toLowerCase().includes(t) || (i.deliveryCountry||'').toLowerCase().includes(t);
+    })
+    .sort((a,b) => (getInvoiceDate(b)||0) - (getInvoiceDate(a)||0));
+
+  const el = document.getElementById('tab-purchases');
+  el.innerHTML = `
+    <div class="card">
+      <div class="card-h"><h3>Import supplier invoices</h3><div class="note">upload AW Dropship invoice PDFs</div></div>
+      <div class="import-drop" id="invoicesDropZone">
+        <div style="font-size:22px; margin-bottom:6px;">&#8593;</div>
+        Drop one or more supplier invoice <span class="mono">.pdf</span> files here, or
+        <label for="invoicesPdfFile" style="color:var(--accent); font-weight:600; cursor:pointer; text-decoration:underline;">browse to choose them</label>.
+        A single combined PDF (many invoices, like a monthly statement) works too \u2014 each invoice inside is detected separately.
+        Re-uploading an invoice you already have will just update it.
+        <input type="file" id="invoicesPdfFile" accept="application/pdf" multiple style="display:none;">
+      </div>
+      <div id="invoicesUploadStatus" class="muted" style="font-size:11.5px; margin-bottom:8px;"></div>
+      <div class="btn-row" style="margin-top:6px;">
+        <button class="pill-btn ghost small" id="toggleInvoicesPaste">Paste invoice text instead</button>
+        <button class="pill-btn ghost small" id="exportInvoicesBtn">Export current invoices (JSON)</button>
+        <button class="pill-btn ghost small" id="manualInvoiceBtn">Add invoice manually</button>
+      </div>
+      <div id="invoicesPasteBox" style="display:none; margin-top:10px;">
+        <textarea id="invoicesTextInput" rows="5" placeholder="Ancient Wisdom Ltd&#10;AW Dropship UK&#10;Invoice number&#10;inv-awd-XXXXXXX&#10;...(paste full invoice text here)"></textarea>
+        <button class="pill-btn" id="importInvoicesBtn" style="margin-top:8px;">Parse &amp; import pasted text</button>
+      </div>
+      <div id="manualInvoiceForm" style="display:none; margin-top:14px; padding-top:14px; border-top:1px solid var(--border-soft);">
+        <div class="field-row">
+          <div class="field"><label>Invoice number</label><input type="text" id="manDoc" placeholder="inv-awd-XXXXXXX"></div>
+          <div class="field"><label>Date</label><input type="date" id="manDate"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Net (£)</label><input type="number" step="0.01" id="manNet"></div>
+          <div class="field"><label>VAT (£)</label><input type="number" step="0.01" id="manVat"></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Total (£)</label><input type="number" step="0.01" id="manTotal"></div>
+          <div class="field"><label>Type</label>
+            <select id="manType"><option value="invoice">Invoice</option><option value="refund">Refund</option></select>
+          </div>
+        </div>
+        <button class="pill-btn" id="manualInvoiceSave">Save invoice</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">
+        <h3>Supplier invoices</h3>
+        <div class="btn-row">
+          <div class="search-box"><span>&#128269;</span><input type="text" id="purchSearch" placeholder="Search invoice #, country&hellip;" value="${escapeHtml(purchSearchTerm)}"></div>
+          <div class="note">${invs.length} document${invs.length===1?'':'s'}</div>
+        </div>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr><th></th><th>Invoice</th><th>Type</th><th>Date</th><th>Payment</th><th class="num">Net</th><th class="num">VAT</th><th class="num">Total</th></tr></thead>
+        <tbody>
+        ${invs.length ? invs.map(i => {
+          const expanded = !!purchExpanded[i.docNumber];
+          return `
+          <tr data-inv-row="${escapeHtml(i.docNumber)}" style="cursor:pointer;">
+            <td>${expanded ? '&#9662;' : '&#9656;'}</td>
+            <td class="mono">${escapeHtml(i.docNumber)}</td>
+            <td><span class="tag ${i.type==='refund'?'due':'grey'}">${i.type}</span></td>
+            <td class="muted">${fmtDateShort(getInvoiceDate(i))}</td>
+            <td><span class="tag ${i.paymentState==='Paid'?'paid':'grey'}">${escapeHtml(i.paymentState||'\u2014')}</span></td>
+            <td class="num">${fmtGBP(i.totalNet)}</td>
+            <td class="num">${fmtGBP(i.vat)}</td>
+            <td class="num">${fmtGBP(i.total)}</td>
+          </tr>
+          ${expanded && i.lineItems && i.lineItems.length ? `<tr><td></td><td colspan="7" style="background:#FAF9F3;">
+            <table style="width:100%;">
+              <thead><tr><th>Code</th><th>Description</th><th class="num">Price</th><th class="num">Qty</th><th class="num">Amount</th></tr></thead>
+              <tbody>${i.lineItems.map(li => `<tr><td class="mono muted">${escapeHtml(li.code)}</td><td>${escapeHtml(li.desc)}</td><td class="num">${fmtGBP(li.price)}</td><td class="num">${li.qty}</td><td class="num">${fmtGBP(li.amount)}</td></tr>`).join('')}</tbody>
+            </table>
+          </td></tr>` : ''}
+          `;
+        }).join('') : '<tr><td colspan="8" class="muted" style="text-align:center; padding:24px;">No supplier invoices in this range. Import above to get started.</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>
+  `;
+
+  el.querySelectorAll('[data-inv-row]').forEach(row => {
+    row.addEventListener('click', () => {
+      const id = row.dataset.invRow;
+      purchExpanded[id] = !purchExpanded[id];
+      renderPurchases();
+    });
+  });
+
+  document.getElementById('purchSearch').addEventListener('input', (e) => {
+    purchSearchTerm = e.target.value;
+    renderPurchases();
+  });
+
+  async function importInvoiceText(text, sourceLabel){
+    if (!text || !text.trim()){ toast('That looked empty'); return 0; }
+    try{
+      const parsed = parseSupplierInvoiceText(text);
+      if (!parsed.length){ toast('No invoices detected in ' + (sourceLabel||'that text')); return 0; }
+      const { list, added, updated } = mergeInvoices(STATE.invoices, parsed);
+      STATE.invoices = list;
+      await persistInvoices();
+      return added + updated;
+    }catch(err){
+      console.error(err);
+      toast('Could not parse ' + (sourceLabel||'that text') + ' \u2014 check the format');
+      return 0;
+    }
+  }
+
+  document.getElementById('importInvoicesBtn').addEventListener('click', async () => {
+    const text = document.getElementById('invoicesTextInput').value;
+    const n = await importInvoiceText(text);
+    if (n){ toast(`Imported ${n} document${n===1?'':'s'}`); document.getElementById('invoicesTextInput').value = ''; renderPurchases(); }
+  });
+
+  document.getElementById('toggleInvoicesPaste').addEventListener('click', () => {
+    const box = document.getElementById('invoicesPasteBox');
+    box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  });
+
+  const statusEl = document.getElementById('invoicesUploadStatus');
+  async function handlePdfFiles(files){
+    if (!files || !files.length) return;
+    let totalImported = 0;
+    for (let i = 0; i < files.length; i++){
+      const file = files[i];
+      statusEl.textContent = `Reading ${file.name} (${i+1}/${files.length})\u2026`;
+      try{
+        const text = await extractPdfText(file);
+        const n = await importInvoiceText(text, file.name);
+        totalImported += n;
+      }catch(err){
+        console.error(err);
+        toast('Could not read ' + file.name + ' \u2014 try the paste option instead');
+      }
+    }
+    statusEl.textContent = totalImported ? `Imported ${totalImported} document${totalImported===1?'':'s'} from ${files.length} file${files.length===1?'':'s'}.` : 'No invoices found in the uploaded file(s).';
+    toast(totalImported ? `Imported ${totalImported} document${totalImported===1?'':'s'}` : 'No invoices found');
+    renderPurchases();
+  }
+
+  const invoicesFileInput = document.getElementById('invoicesPdfFile');
+  invoicesFileInput.addEventListener('change', async (e) => {
+    await handlePdfFiles(e.target.files);
+    invoicesFileInput.value = '';
+  });
+
+  const invDropZone = document.getElementById('invoicesDropZone');
+  ['dragover','dragenter'].forEach(evt => invDropZone.addEventListener(evt, (e) => {
+    e.preventDefault(); invDropZone.style.borderColor = 'var(--accent)'; invDropZone.style.background = 'var(--accent-soft)';
+  }));
+  ['dragleave','drop'].forEach(evt => invDropZone.addEventListener(evt, (e) => {
+    e.preventDefault(); invDropZone.style.borderColor = ''; invDropZone.style.background = '';
+  }));
+  invDropZone.addEventListener('drop', async (e) => {
+    await handlePdfFiles(e.dataTransfer.files);
+  });
+
+  document.getElementById('exportInvoicesBtn').addEventListener('click', () => {
+    downloadJSON('tatsatiti-invoices.json', STATE.invoices);
+  });
+
+  document.getElementById('manualInvoiceBtn').addEventListener('click', () => {
+    const f = document.getElementById('manualInvoiceForm');
+    f.style.display = f.style.display === 'none' ? 'block' : 'none';
+  });
+
+  document.getElementById('manualInvoiceSave').addEventListener('click', async () => {
+    const docNumber = document.getElementById('manDoc').value.trim();
+    const date = document.getElementById('manDate').value;
+    if (!docNumber || !date){ toast('Invoice number and date are required'); return; }
+    const net = parseFloat(document.getElementById('manNet').value) || 0;
+    const vat = parseFloat(document.getElementById('manVat').value) || 0;
+    const total = parseFloat(document.getElementById('manTotal').value) || (net+vat);
+    const type = document.getElementById('manType').value;
+    const dateObj = new Date(date);
+    const dateStr = dateObj.getDate() + ' ' + MONTHS_LONG[dateObj.getMonth()] + ' ' + dateObj.getFullYear();
+    const record = { docNumber, type, date: dateStr, originalInvoice:null, paymentState:'Paid', weight:null, deliveryCountry:null, totalNet:net, shipping:null, charges:null, vat, total, outsideScopeOfTax:false, lineItems:[] };
+    const { list } = mergeInvoices(STATE.invoices, [record]);
+    STATE.invoices = list;
+    await persistInvoices();
+    toast('Invoice saved');
+    document.getElementById('manualInvoiceForm').style.display = 'none';
+    renderPurchases();
+  });
+}
+/* ============================================================
+   TATSATITI LEDGER — Customer Intelligence tab
+   ============================================================ */
+
+function renderCustomers(){
+  const range = currentRange();
+  const ci = computeCustomerIntel(STATE.orders, range);
+  const repeatRate = ci.totalCustomers ? (ci.repeatCustomers/ci.totalCustomers*100) : null;
+  const topRegions = ci.regionList.slice(0,8);
+  const topCustomers = ci.list.slice(0,15);
+
+  const el = document.getElementById('tab-customers');
+  el.innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="lbl">Total customers</div><div class="val">${fmtNum(ci.totalCustomers)}</div></div>
+      <div class="kpi-card"><div class="lbl">Repeat customers</div><div class="val">${fmtNum(ci.repeatCustomers)}</div><div class="sub">${repeatRate!==null?fmtPct(repeatRate):'\u2014'} of customer base</div></div>
+      <div class="kpi-card"><div class="lbl">One-time customers</div><div class="val">${fmtNum(ci.oneTime)}</div></div>
+      <div class="kpi-card"><div class="lbl">Top customer spend</div><div class="val">${ci.list.length? fmtGBP(ci.list[0].revenue) : fmtGBP(0)}</div><div class="sub">${ci.list.length? escapeHtml(ci.list[0].name) : '\u2014'}</div></div>
+    </div>
+
+    <div class="panel-row two">
+      <div class="card">
+        <div class="card-h"><h3>Top customers</h3><div class="note">by revenue in period</div></div>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Customer</th><th>Region</th><th class="num">Orders</th><th class="num">Revenue</th><th>Last order</th></tr></thead>
+          <tbody>
+          ${topCustomers.length ? topCustomers.map(c => `
+            <tr>
+              <td>${escapeHtml(c.name)}${c.email ? '<div class="muted" style="font-size:10.5px;">'+escapeHtml(c.email)+'</div>' : ''}</td>
+              <td class="muted">${escapeHtml(c.region||c.country||'\u2014')}</td>
+              <td class="num">${c.orders}${c.orders>1?' <span class="tag neutral" style="margin-left:4px;">repeat</span>':''}</td>
+              <td class="num">${fmtGBP(c.revenue)}</td>
+              <td class="muted">${fmtDateShort(c.lastOrder)}</td>
+            </tr>`).join('') : '<tr><td colspan="5" class="muted">No customers in this range.</td></tr>'}
+          </tbody>
+        </table></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Repeat vs one-time</h3></div>
+        <div class="chart-wrap short"><canvas id="chartRepeat"></canvas></div>
+        <div class="card-h" style="margin-top:18px;"><h3 style="font-size:13.5px;">Revenue by region</h3></div>
+        <div class="chart-wrap short"><canvas id="chartRegion"></canvas></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h3>Geography detail</h3></div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Region / country</th><th class="num">Orders</th><th class="num">Revenue</th><th class="num">Avg order value</th></tr></thead>
+        <tbody>
+        ${topRegions.length ? ci.regionList.map(r => `
+          <tr><td>${escapeHtml(r.region)}</td><td class="num">${r.orders}</td><td class="num">${fmtGBP(r.revenue)}</td><td class="num">${fmtGBP(r.revenue/r.orders)}</td></tr>
+        `).join('') : '<tr><td colspan="4" class="muted">No data in this range.</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>
+  `;
+
+  if (ci.totalCustomers){
+    makeChart('chartRepeat', {
+      type:'doughnut',
+      data:{ labels:['Repeat','One-time'], datasets:[{ data:[ci.repeatCustomers, ci.oneTime], backgroundColor:[CHART_COLORS.ink, CHART_COLORS.accent], borderWidth:0 }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{family:'Inter',size:11} } } }, cutout:'62%' }
+    });
+  }
+  if (topRegions.length){
+    makeChart('chartRegion', {
+      type:'bar',
+      data:{ labels: topRegions.map(r=>r.region), datasets:[{ label:'Revenue', data: topRegions.map(r=>r.revenue), backgroundColor: CHART_COLORS.bar3, borderRadius:4 }] },
+      options:{
+        indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:false } },
+        scales:{ x:{ grid:{color:CHART_COLORS.gridLine}, ticks:{font:{family:'IBM Plex Mono',size:10}, callback:v=>'\u00A3'+v} }, y:{ grid:{display:false}, ticks:{font:{family:'Inter',size:10.5}} } }
+      }
+    });
+  }
+}
+/* ============================================================
+   TATSATITI LEDGER — Business Intelligence tab
+   ============================================================ */
+
+function renderBI(){
+  const range = currentRange();
+  const products = computeProductIntel(STATE.orders, STATE.invoices, range);
+  const topByRevenue = products.slice(0,10);
+  const withCost = products.filter(p => p.hasCost);
+  const bestMargin = [...withCost].sort((a,b) => b.marginPct - a.marginPct).slice(0,5);
+  const worstMargin = [...withCost].sort((a,b) => a.marginPct - b.marginPct).slice(0,5);
+
+  const ords = filterOrders(activeOrders(STATE.orders), range);
+  const fulfillmentCounts = {};
+  ords.forEach(o => { const k = o.fulfillmentStatus||'unknown'; fulfillmentCounts[k] = (fulfillmentCounts[k]||0)+1; });
+
+  const countryCounts = {};
+  ords.forEach(o => { const k = o.shippingCountry||'Unknown'; countryCounts[k] = (countryCounts[k]||0)+1; });
+  const countryList = Object.entries(countryCounts).map(([k,v]) => ({country:k, orders:v})).sort((a,b)=>b.orders-a.orders);
+
+  const series = monthlySeries(ords, filterInvoices(STATE.invoices, range));
+
+  const el = document.getElementById('tab-bi');
+  el.innerHTML = `
+    <div class="kpi-grid">
+      <div class="kpi-card"><div class="lbl">Products sold</div><div class="val">${fmtNum(products.length)}</div><div class="sub">distinct SKUs / items</div></div>
+      <div class="kpi-card"><div class="lbl">With known cost</div><div class="val">${fmtNum(withCost.length)}</div><div class="sub">matched to a supplier invoice</div></div>
+      <div class="kpi-card"><div class="lbl">Countries shipped to</div><div class="val">${fmtNum(countryList.length)}</div></div>
+      <div class="kpi-card"><div class="lbl">Avg order volume / month</div><div class="val">${series.length ? fmtNum(Math.round(series.reduce((s,m)=>s+m.orders,0)/series.length)) : '0'}</div></div>
+    </div>
+
+    <div class="panel-row two">
+      <div class="card">
+        <div class="card-h"><h3>Top products by revenue</h3></div>
+        <div class="chart-wrap"><canvas id="chartTopProducts"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Fulfillment status</h3></div>
+        <div class="chart-wrap short"><canvas id="chartFulfillment"></canvas></div>
+        <div class="card-h" style="margin-top:18px;"><h3 style="font-size:13.5px;">Orders by month</h3></div>
+        <div class="chart-wrap short"><canvas id="chartOrderVolume"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel-row two">
+      <div class="card">
+        <div class="card-h"><h3>Best margins</h3><div class="note">products with known cost</div></div>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Product</th><th class="num">Revenue</th><th class="num">Margin</th></tr></thead>
+          <tbody>${bestMargin.length ? bestMargin.map(p => `<tr><td>${escapeHtml(p.name)}</td><td class="num">${fmtGBP(p.revenue)}</td><td class="num" style="color:var(--positive);">${fmtPct(p.marginPct)}</td></tr>`).join('') : '<tr><td colspan="3" class="muted">Not enough matched cost data yet.</td></tr>'}</tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Tightest margins</h3><div class="note">watch these</div></div>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Product</th><th class="num">Revenue</th><th class="num">Margin</th></tr></thead>
+          <tbody>${worstMargin.length ? worstMargin.map(p => `<tr><td>${escapeHtml(p.name)}</td><td class="num">${fmtGBP(p.revenue)}</td><td class="num" style="color:${p.marginPct<15?'var(--negative)':'var(--ink)'};">${fmtPct(p.marginPct)}</td></tr>`).join('') : '<tr><td colspan="3" class="muted">Not enough matched cost data yet.</td></tr>'}</tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h3>All products</h3><div class="note">${products.length} items, sorted by revenue</div></div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Product</th><th class="mono">SKU</th><th class="num">Qty sold</th><th class="num">Revenue</th><th class="num">Cost</th><th class="num">Margin</th></tr></thead>
+        <tbody>
+        ${products.length ? products.map(p => `
+          <tr>
+            <td>${escapeHtml(p.name)}</td>
+            <td class="mono muted">${escapeHtml(p.sku||'\u2014')}</td>
+            <td class="num">${p.qty}</td>
+            <td class="num">${fmtGBP(p.revenue)}</td>
+            <td class="num">${p.hasCost ? fmtGBP(p.cost) : '<span class="muted">no data</span>'}</td>
+            <td class="num">${p.hasCost ? fmtPct(p.marginPct) : '\u2014'}</td>
+          </tr>`).join('') : '<tr><td colspan="6" class="muted">No product sales in this range.</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>
+  `;
+
+  if (topByRevenue.length){
+    makeChart('chartTopProducts', {
+      type:'bar',
+      data:{ labels: topByRevenue.map(p => p.name.length>28 ? p.name.slice(0,26)+'\u2026' : p.name), datasets:[{ label:'Revenue', data: topByRevenue.map(p=>p.revenue), backgroundColor: CHART_COLORS.ink, borderRadius:4 }] },
+      options:{
+        indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ display:false } },
+        scales:{ x:{ grid:{color:CHART_COLORS.gridLine}, ticks:{font:{family:'IBM Plex Mono',size:10}, callback:v=>'\u00A3'+v} }, y:{ grid:{display:false}, ticks:{font:{family:'Inter',size:10}} } }
+      }
+    });
+  }
+  const fKeys = Object.keys(fulfillmentCounts);
+  if (fKeys.length){
+    makeChart('chartFulfillment', {
+      type:'doughnut',
+      data:{ labels: fKeys, datasets:[{ data: fKeys.map(k=>fulfillmentCounts[k]), backgroundColor:[CHART_COLORS.ink, CHART_COLORS.accent, CHART_COLORS.positive, CHART_COLORS.bar3, CHART_COLORS.negative], borderWidth:0 }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{family:'Inter',size:10.5} } } }, cutout:'62%' }
+    });
+  }
+  if (series.length){
+    makeChart('chartOrderVolume', {
+      type:'bar',
+      data:{ labels: series.map(s=>s.label), datasets:[{ label:'Orders', data: series.map(s=>s.orders), backgroundColor: CHART_COLORS.bar2, borderRadius:4 }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ grid:{display:false}, ticks:{font:{family:'Inter',size:10}} }, y:{ grid:{color:CHART_COLORS.gridLine}, ticks:{font:{family:'IBM Plex Mono',size:10}} } } }
+    });
+  }
+}
+/* ============================================================
+   TATSATITI LEDGER — Companies House tab
+   ============================================================ */
+
+function renderCH(){
+  const c = STATE.company;
+  const ch = computeCompaniesHouseDates(c);
+  const now = new Date();
+
+  let timelineItems = [];
+  if (ch){
+    timelineItems = [
+      { code:'INC', label:'Incorporation date', date: ch.incorporationDate, desc:'Date TATSATITI LTD was formed at Companies House.' },
+      { code:'CT1', label:'Notify HMRC of Corporation Tax liability', date: ch.ctNotifyDue, desc:'Register for Corporation Tax within 3 months of starting to trade.' },
+      { code:'ARD', label:'Accounting reference date', date: ch.accountingReferenceDate, desc:'The end of your company\u2019s financial year, set automatically by Companies House.' },
+      { code:'ACC', label:'First annual accounts due', date: ch.firstAccountsDue, desc:'21 months after incorporation for a first set of accounts.' },
+      { code:'CS', label:'Confirmation statement due', date: ch.confirmationDue, desc:'Due 14 days after each review period (usually annual from incorporation).' },
+      { code:'CT6', label:'Corporation Tax return (CT600) due', date: ch.ctReturnDue, desc:'12 months after the end of the accounting period.' },
+      { code:'CTP', label:'Corporation Tax payment due', date: ch.ctPaymentDue, desc:'9 months and 1 day after the end of the accounting period \u2014 earlier than the return itself.' },
+    ].sort((a,b) => a.date - b.date);
+  }
+
+  const el = document.getElementById('tab-ch');
+  el.innerHTML = `
+    <div class="panel-row two">
+      <div class="card">
+        <div class="card-h"><h3>Company record</h3></div>
+        <div class="stat-line"><span class="k">Company name</span><span class="v">${escapeHtml(c.name)}</span></div>
+        <div class="stat-line"><span class="k">Company number</span><span class="v">${escapeHtml(c.number)}</span></div>
+        <div class="stat-line"><span class="k">Corporation Tax UTR</span><span class="v">${escapeHtml(c.utr)}</span></div>
+        <div class="stat-line"><span class="k">VAT number</span><span class="v">GB${escapeHtml(c.vatNumber||'\u2014')}</span></div>
+        <div class="stat-line"><span class="k">VAT status</span><span class="v">${c.vatRegistered ? 'Registered' : 'Not registered'}</span></div>
+        <div class="stat-line"><span class="k">Incorporated</span><span class="v">${ch ? fmtDateShort(ch.incorporationDate) : '\u2014'}</span></div>
+        <div class="stat-line"><span class="k">Registered office</span><span class="v" style="text-align:right; max-width:220px;">${escapeHtml(c.registeredAddress||'\u2014')}</span></div>
+        <div class="disclaimer">Company details are stored locally for reference in this ledger. Update the incorporation date or company details in Company &amp; Data if anything changes \u2014 the filing dates below recalculate automatically.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Filing calendar</h3><div class="note">estimated from standard rules</div></div>
+        <div class="cth-timeline">
+        ${timelineItems.length ? timelineItems.map(item => {
+          const daysAway = ch ? Math.round((item.date - now) / 86400000) : null;
+          const urgent = daysAway !== null && daysAway >= 0 && daysAway <= 60;
+          const past = daysAway !== null && daysAway < 0;
+          return `
+          <div class="cth-item ${urgent ? 'urgent' : ''}">
+            <div class="cth-dot">${item.code}</div>
+            <div class="cth-body">
+              <div class="t">${escapeHtml(item.label)}</div>
+              <div class="d">${escapeHtml(item.desc)}</div>
+            </div>
+            <div class="cth-date">
+              ${fmtDateShort(item.date)}
+              ${past ? '<div class="muted" style="font-weight:400; font-size:10.5px;">passed</div>' : (daysAway!==null ? `<div style="font-weight:400; font-size:10.5px; color:${urgent?'var(--negative)':'var(--text-muted)'};">${daysAway} days</div>` : '')}
+            </div>
+          </div>`;
+        }).join('') : '<div class="muted">Set an incorporation date in Company &amp; Data to build the filing calendar.</div>'}
+        </div>
+      </div>
+    </div>
+
+    <div class="disclaimer" style="margin-top:4px;">
+      These dates are estimates based on standard Companies House and HMRC rules for a company incorporated on the date on file \u2014
+      they are not a substitute for checking your actual deadlines on the Companies House register (find-and-update.company-information.service.gov.uk)
+      and your HMRC online account, which reflect any changes you've made (e.g. a shortened or extended accounting period).
+    </div>
+  `;
+}
+/* ============================================================
+   TATSATITI LEDGER — Company & Data tab
+   ============================================================ */
+
+function renderSettings(){
+  const c = STATE.company;
+  const el = document.getElementById('tab-settings');
+  el.innerHTML = `
+    <div class="panel-row two">
+      <div class="card">
+        <div class="card-h"><h3>Company details</h3></div>
+        <form id="companyForm">
+          <div class="field"><label>Company name</label><input type="text" id="cName" value="${escapeHtml(c.name)}"></div>
+          <div class="field-row">
+            <div class="field"><label>Company number</label><input type="text" id="cNumber" value="${escapeHtml(c.number)}"></div>
+            <div class="field"><label>Corporation Tax UTR</label><input type="text" id="cUtr" value="${escapeHtml(c.utr)}"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>VAT number (without GB)</label><input type="text" id="cVat" value="${escapeHtml(c.vatNumber)}"></div>
+            <div class="field"><label>VAT registered?</label>
+              <select id="cVatReg"><option value="no" ${!c.vatRegistered?'selected':''}>Not registered</option><option value="yes" ${c.vatRegistered?'selected':''}>Registered</option></select>
+            </div>
+          </div>
+          <div class="field"><label>Incorporation date</label><input type="date" id="cInc" value="${escapeHtml(c.incorporationDate)}"></div>
+          <div class="field"><label>Registered office address</label><input type="text" id="cAddr" value="${escapeHtml(c.registeredAddress||'')}"></div>
+          <button type="submit" class="pill-btn">Save company details</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><h3>Data &amp; storage</h3></div>
+        <div class="stat-line"><span class="k">Orders on file</span><span class="v">${fmtNum(STATE.orders.length)}</span></div>
+        <div class="stat-line"><span class="k">Supplier invoices on file</span><span class="v">${fmtNum(STATE.invoices.length)}</span></div>
+        <div class="stat-line"><span class="k">Logged expenses</span><span class="v">${fmtNum(STATE.expenses.length)}</span></div>
+        <p class="muted" style="font-size:12px; margin-top:12px; line-height:1.6;">
+          Your data is saved to your account's private storage for this tool and will be here next time you open it.
+          It is not visible to anyone else.
+        </p>
+        <div class="btn-row" style="margin-top:10px;">
+          <button class="pill-btn ghost" id="exportAllBtn">Export full backup (JSON)</button>
+          <button class="pill-btn ghost" id="importAllBtn">Restore from backup</button>
+        </div>
+        <input type="file" id="importAllFile" accept="application/json" style="display:none;">
+        <div class="btn-row" style="margin-top:18px;">
+          <button class="pill-btn" style="background:var(--negative);" id="resetAllBtn">Clear all data</button>
+        </div>
+        <div class="disclaimer">Clearing data removes all orders, invoices and expenses from this tool. Export a backup first if you might need it again.</div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('companyForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    STATE.company = {
+      name: document.getElementById('cName').value.trim() || DEFAULT_COMPANY.name,
+      number: document.getElementById('cNumber').value.trim(),
+      utr: document.getElementById('cUtr').value.trim(),
+      vatNumber: document.getElementById('cVat').value.trim(),
+      vatRegistered: document.getElementById('cVatReg').value === 'yes',
+      incorporationDate: document.getElementById('cInc').value,
+      registeredAddress: document.getElementById('cAddr').value.trim(),
+    };
+    await persistCompany();
+    toast('Company details saved');
+    renderSettings();
+  });
+
+  document.getElementById('exportAllBtn').addEventListener('click', () => {
+    downloadJSON('tatsatiti-ledger-backup.json', { orders: STATE.orders, invoices: STATE.invoices, expenses: STATE.expenses, company: STATE.company, exportedAt: new Date().toISOString() });
+  });
+
+  document.getElementById('importAllBtn').addEventListener('click', () => document.getElementById('importAllFile').click());
+  document.getElementById('importAllFile').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try{
+        const data = JSON.parse(ev.target.result);
+        if (data.orders) STATE.orders = data.orders;
+        if (data.invoices) STATE.invoices = data.invoices;
+        if (data.expenses) STATE.expenses = data.expenses;
+        if (data.company) STATE.company = Object.assign({}, DEFAULT_COMPANY, data.company);
+        await Promise.all([persistOrders(), persistInvoices(), persistExpenses(), persistCompany()]);
+        toast('Backup restored');
+        renderSettings();
+      }catch(err){
+        console.error(err);
+        toast('Could not read that backup file');
+      }
+    };
+    reader.readAsText(file);
+  });
+
+  document.getElementById('resetAllBtn').addEventListener('click', async () => {
+    if (!confirm('This will permanently remove all orders, invoices, and expenses from this tool. Continue?')) return;
+    STATE.orders = []; STATE.invoices = []; STATE.expenses = [];
+    await Promise.all([persistOrders(), persistInvoices(), persistExpenses()]);
+    toast('All data cleared');
+    renderSettings();
+  });
+}
+/* ============================================================
+   TATSATITI LEDGER — global state & app shell
+   ============================================================ */
+
+const DEFAULT_COMPANY = {
+  name: 'TATSATITI LTD',
+  number: '16922756',
+  utr: '1554724196',
+  vatNumber: '509327001',
+  vatRegistered: false,
+  incorporationDate: '2025-12-19',
+  registeredAddress: '17 Church Road, Rowley Regis, B65 9EU, United Kingdom',
+};
+
+const STATE = {
+  orders: [],
+  invoices: [],
+  expenses: [],
+  company: Object.assign({}, DEFAULT_COMPANY),
+  range: { preset: 'all', from: null, to: null },
+  activeTab: 'dashboard',
+  loaded: false,
+};
+
+const CHARTS = {};
+function killChart(id){
+  if (CHARTS[id]){ CHARTS[id].destroy(); delete CHARTS[id]; }
+}
+function makeChart(id, config){
+  killChart(id);
+  const el = document.getElementById(id);
+  if (!el) return null;
+  if (typeof Chart === 'undefined'){
+    const wrap = el.closest('.chart-wrap');
+    if (wrap){
+      wrap.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px; text-align:center; padding:20px; line-height:1.6;">Chart library couldn\u2019t load in this network \u2014 the figures are in the table below.</div>';
+    }
+    return null;
+  }
+  try{
+    CHARTS[id] = new Chart(el.getContext('2d'), config);
+    return CHARTS[id];
+  }catch(err){
+    console.error('[Ledger] chart error', id, err);
+    const wrap = el.closest('.chart-wrap');
+    if (wrap){
+      wrap.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:var(--text-muted); font-size:12px; text-align:center; padding:20px;">Couldn\u2019t draw this chart \u2014 see the table below.</div>';
+    }
+    return null;
+  }
+}
+
+const CHART_COLORS = {
+  ink: '#13322E', accent: '#A9781F', positive: '#3C7A5D', negative: '#B23A2E',
+  gridLine: '#E9E7DA', textMuted: '#6B7268',
+  bar1: '#13322E', bar2: '#C9A227', bar3: '#7C9389',
+};
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), 2600);
+}
+
+/* ---------------- Library loading with CDN fallback ----------------
+   The primary <script> tags in <head> try cdnjs first (fast path).
+   If that's blocked by the network, this retries a couple of
+   alternate CDNs before giving up, so charts/CSV/PDF import still work. */
+function loadScriptOnce(src, timeoutMs){
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled){ settled = true; reject(new Error('timeout loading ' + src)); }
+    }, timeoutMs || 7000);
+    s.onload = () => { if (!settled){ settled = true; clearTimeout(timer); resolve(); } };
+    s.onerror = () => { if (!settled){ settled = true; clearTimeout(timer); reject(new Error('failed to load ' + src)); } };
+    document.head.appendChild(s);
+  });
+}
+async function ensureGlobal(name, urls){
+  if (typeof window[name] !== 'undefined') return true;
+  for (const url of urls){
+    try{
+      await loadScriptOnce(url);
+      if (typeof window[name] !== 'undefined') return true;
+    }catch(e){ /* try next source */ }
+  }
+  return typeof window[name] !== 'undefined';
+}
+async function ensureLibraries(){
+  const [chartOk, papaOk, pdfInfo] = await Promise.all([
+    ensureGlobal('Chart', [
+      'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js',
+      'https://unpkg.com/chart.js@4.4.4/dist/chart.umd.min.js',
+    ]),
+    ensureGlobal('Papa', [
+      'https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js',
+      'https://unpkg.com/papaparse@5.4.1/papaparse.min.js',
+    ]),
+    ensurePdfJs(),
+  ]);
+  return { chart: chartOk, papa: papaOk, pdf: pdfInfo.ok };
+}
+
+const PDFJS_SOURCES = [
+  { main: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', worker: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js' },
+  { main: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js', worker: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js' },
+  { main: 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.min.js', worker: 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js' },
+];
+let PDFJS_WORKER_SRC = PDFJS_SOURCES[0].worker;
+async function ensurePdfJs(){
+  // The static <script> tag in <head> already attempted PDFJS_SOURCES[0] (cdnjs).
+  if (typeof pdfjsLib !== 'undefined') return { ok: true };
+  for (const src of PDFJS_SOURCES.slice(1)){
+    try{
+      await loadScriptOnce(src.main);
+      if (typeof pdfjsLib !== 'undefined'){ PDFJS_WORKER_SRC = src.worker; return { ok: true }; }
+    }catch(e){ /* try next */ }
+  }
+  return { ok: typeof pdfjsLib !== 'undefined' };
+}
+
+/* ---------------- Boot / persistence ---------------- */
+function showFatalError(context, err){
+  console.error('[Ledger error]', context, err);
+  const main = document.querySelector('.main');
+  const banner = document.createElement('div');
+  banner.style.cssText = 'background:#F6E2DF; border:1px solid #B23A2E; color:#7A241B; border-radius:10px; padding:16px 18px; margin-bottom:18px; font-family:IBM Plex Mono, monospace; font-size:12px; white-space:pre-wrap;';
+  banner.innerHTML = '<div style="font-family:Inter,sans-serif; font-weight:700; font-size:13.5px; margin-bottom:6px;">Something broke while loading (' + escapeHtml(context) + ')</div>' +
+    '<div>' + escapeHtml((err && err.message) || String(err)) + '</div>' +
+    '<button id="copyErrBtn" style="margin-top:10px; font-family:Inter,sans-serif; font-size:11.5px; font-weight:600; background:#7A241B; color:#fff; border:none; border-radius:6px; padding:6px 10px; cursor:pointer;">Copy error details</button>';
+  main.prepend(banner);
+  const btn = banner.querySelector('#copyErrBtn');
+  if (btn){
+    btn.addEventListener('click', () => {
+      const details = context + ': ' + ((err && err.stack) || (err && err.message) || String(err));
+      if (navigator.clipboard) navigator.clipboard.writeText(details).catch(()=>{});
+      btn.textContent = 'Copied';
+    });
+  }
+}
+
+window.addEventListener('error', (e) => {
+  showFatalError('uncaught error', e.error || { message: e.message });
+});
+window.addEventListener('unhandledrejection', (e) => {
+  showFatalError('unhandled promise rejection', e.reason || { message: 'unknown' });
+});
+
+async function boot(){
+  try{
+    const [orders, invoices, expenses, company] = await Promise.all([
+      storeGet('orders'), storeGet('invoices'), storeGet('expenses'), storeGet('company')
+    ]);
+
+    STATE.orders = Array.isArray(orders) ? orders : (orders === null ? null : []);
+    STATE.invoices = Array.isArray(invoices) ? invoices : (invoices === null ? null : []);
+
+    if (STATE.orders === null){
+      STATE.orders = SEED_ORDERS;
+      await storeSet('orders', STATE.orders);
+    }
+    if (STATE.invoices === null){
+      STATE.invoices = SEED_INVOICES;
+      await storeSet('invoices', STATE.invoices);
+    }
+    STATE.expenses = Array.isArray(expenses) ? expenses : [];
+    STATE.company = (company && typeof company === 'object') ? Object.assign({}, DEFAULT_COMPANY, company) : Object.assign({}, DEFAULT_COMPANY);
+    STATE.loaded = true;
+
+    renderAll();
+  }catch(err){
+    showFatalError('startup', err);
+    // Fall back to seed data in memory so the UI is at least usable
+    try{
+      STATE.orders = Array.isArray(STATE.orders) ? STATE.orders : SEED_ORDERS;
+      STATE.invoices = Array.isArray(STATE.invoices) ? STATE.invoices : SEED_INVOICES;
+      STATE.expenses = Array.isArray(STATE.expenses) ? STATE.expenses : [];
+      STATE.company = STATE.company || Object.assign({}, DEFAULT_COMPANY);
+      STATE.loaded = true;
+      renderAll();
+    }catch(err2){
+      showFatalError('fallback render', err2);
+    }
+  }
+}
+
+async function persistOrders(){ await storeSet('orders', STATE.orders); }
+async function persistInvoices(){ await storeSet('invoices', STATE.invoices); }
+async function persistExpenses(){ await storeSet('expenses', STATE.expenses); }
+async function persistCompany(){ await storeSet('company', STATE.company); }
+
+/* ---------------- Nav wiring ---------------- */
+const TAB_TITLES = {
+  dashboard: ['Dashboard', 'Everything about the business, at a glance.'],
+  pl: ['Profit &amp; Loss', 'Revenue, cost of goods, and operating expenses over time.'],
+  vat: ['VAT', 'Output tax, input tax, and your registration position.'],
+  sales: ['Sales &amp; Orders', 'Customer orders imported from Shopify.'],
+  purchases: ['Purchases &amp; Invoices', 'Supplier invoices from Ancient Wisdom / AW Dropship.'],
+  customers: ['Customer Intelligence', 'Who buys, how often, and from where.'],
+  bi: ['Business Intelligence', 'Product performance and operational trends.'],
+  ch: ['Companies House', 'Statutory filing dates for TATSATITI LTD.'],
+  settings: ['Company &amp; Data', 'Company details, backups, and data management.'],
+};
+
+function setActiveTab(tab){
+  STATE.activeTab = tab;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  const [title, sub] = TAB_TITLES[tab];
+  document.getElementById('pageTitle').innerHTML = title;
+  document.getElementById('pageSub').innerHTML = sub;
+  document.getElementById('globalRangeBar').style.display = (tab === 'ch' || tab === 'settings') ? 'none' : 'flex';
+  renderTab(tab);
+}
+
+function renderTab(tab){
+  if (!STATE.loaded) return;
+  const panel = document.getElementById('tab-' + tab);
+  try{
+    if (tab === 'dashboard') renderDashboard();
+    else if (tab === 'pl') renderPL();
+    else if (tab === 'vat') renderVAT();
+    else if (tab === 'sales') renderSales();
+    else if (tab === 'purchases') renderPurchases();
+    else if (tab === 'customers') renderCustomers();
+    else if (tab === 'bi') renderBI();
+    else if (tab === 'ch') renderCH();
+    else if (tab === 'settings') renderSettings();
+  }catch(err){
+    console.error('[Ledger error] render ' + tab, err);
+    if (panel){
+      panel.innerHTML = '<div class="card" style="border-color:#B23A2E;">' +
+        '<div style="font-family:var(--font-display); font-weight:600; color:var(--negative); margin-bottom:6px;">This tab couldn\u2019t render</div>' +
+        '<div class="mono" style="font-size:11.5px; color:var(--text-muted); white-space:pre-wrap;">' + escapeHtml((err && err.message) || String(err)) + '</div>' +
+        '</div>';
+    }
+  }
+}
+
+function renderAll(){
+  renderTab(STATE.activeTab);
+}
+
+function wireNav(){
+  document.querySelectorAll('.nav-btn').forEach(btn => {
+    btn.addEventListener('click', () => setActiveTab(btn.dataset.tab));
+  });
+  const preset = document.getElementById('rangePreset');
+  const from = document.getElementById('rangeFrom');
+  const to = document.getElementById('rangeTo');
+  const toSep = document.getElementById('rangeToSep');
+  preset.addEventListener('change', () => {
+    STATE.range.preset = preset.value;
+    const custom = preset.value === 'custom';
+    from.style.display = custom ? 'block' : 'none';
+    toSep.style.display = custom ? 'inline' : 'none';
+    to.style.display = custom ? 'block' : 'none';
+    renderTab(STATE.activeTab);
+  });
+  from.addEventListener('change', () => { STATE.range.from = from.value; renderTab(STATE.activeTab); });
+  to.addEventListener('change', () => { STATE.range.to = to.value; renderTab(STATE.activeTab); });
+}
+
+function currentRange(){ return resolveRange(STATE.range); }
+
+document.addEventListener('DOMContentLoaded', async () => {
+  wireNav();
+  let libStatus = { chart: true, papa: true, pdf: true };
+  try{
+    libStatus = await ensureLibraries();
+  }catch(e){
+    console.error('[Ledger] library loading failed', e);
+  }
+  if (!libStatus.chart || !libStatus.papa || !libStatus.pdf){
+    const main = document.querySelector('.main');
+    const missing = [];
+    if (!libStatus.chart) missing.push('charts');
+    if (!libStatus.papa) missing.push('CSV import');
+    if (!libStatus.pdf) missing.push('PDF import');
+    const banner = document.createElement('div');
+    banner.style.cssText = 'background:#F1E4C4; border:1px solid #A9781F; color:#5C4212; border-radius:10px; padding:12px 16px; margin-bottom:18px; font-size:12.5px;';
+    banner.innerHTML = '<strong>Limited mode:</strong> couldn\u2019t load the library for ' + missing.join(' and ') +
+      ' from any available source (cdnjs, jsdelivr, unpkg all appear blocked on this network). Every table, KPI, and figure still works \u2014 you may just need a different network or the paste-text import options.';
+    main.prepend(banner);
+  }
+  boot();
+});
+
+</script>
+</body>
+</html>
