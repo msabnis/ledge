@@ -76,5 +76,14 @@
     "minimatch": "9.0.5",
     "vite": "^6.2.2",
     "@shopify/shopify-api": "13.1.0"
+  },
+  "allowScripts": {
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true,
+    "prisma@6.19.3": true,
+    "@parcel/watcher@2.6.0": true,
+    "unrs-resolver@1.12.2": true,
+    "esbuild@0.17.6": true,
+    "esbuild@0.25.12": true
   }
 }
