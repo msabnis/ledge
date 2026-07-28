@@ -18,6 +18,12 @@ Scaffolded, not yet deployed. Built on Shopify's official Remix app template, wi
 
 ## First-time setup
 
+0. **Install Shopify CLI globally** (not a project dependency in this template — the `npm run dev`/`deploy`/`config:link` scripts call it directly, so this is required, not optional):
+   ```
+   npm install -g @shopify/cli@latest
+   ```
+   Verify with `shopify version`. This only runs on your own machine for local dev and pushing config — it has no role in the deployed app.
+
 1. **Install dependencies**
    ```
    npm install

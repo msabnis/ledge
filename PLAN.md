@@ -111,6 +111,7 @@ Upgrades to the existing Customer/BI tab concepts, not replacements:
 ## 6. Open questions / decisions needed
 - [ ] App name (neutral, no "AW" branding)
 - [ ] Confirm Shopify Partner account + create the app in Partner dashboard
+- [ ] **Distribution method for beta**: Shopify's Custom distribution only covers multiple stores if they're on the same Plus organization — doesn't fit recruiting 2-3 independent, non-Plus AW dropshippers. Public distribution with unlisted visibility (still requires Shopify app review) looks like the realistic path instead. Confirm current options directly in the Dev Dashboard before committing to a beta timeline — see `SHOPIFY_SETUP.md` Section 8.
 - [ ] Get real AW Slovakia/Spain invoice samples before scoping 2a in earnest
 - [ ] Identify 2–3 candidate beta merchants from the AW seller community
 - [ ] Decide beta pricing (likely free) vs. when to introduce Shopify Billing
@@ -118,3 +119,4 @@ Upgrades to the existing Customer/BI tab concepts, not replacements:
 ## 7. Changelog
 - **25 Jul 2026** — Initial plan drafted: strategy, Stage 1 MVP scope, Stage 2 roadmap (EU expansion, enhanced BI/CI)
 - **25 Jul 2026** — Scaffolded the real app on top of Shopify's official Remix template: Postgres/Prisma schema, order-sync + refund webhook handlers, one-time historical backfill (GraphQL Admin API), calculation engine + AW invoice parser ported from the original build, and all five Polaris screens (Dashboard, P&L, VAT, Sales, Purchases, Settings). `npm install`, `tsc --noEmit`, and `npm run build` verified clean. Not yet verified: `prisma generate`/`migrate` (needs real network access), live OAuth install, Railway deploy — see updated Build order checklist above.
+- **26 Jul 2026** — Added `SHOPIFY_SETUP.md` covering Shopify-side config end to end. Two findings worth flagging: (1) protected customer data access is a separate approval from scopes and gates order data on any real store, not just full-history access — needs applying for before beta, not after; (2) Shopify's Custom distribution (no-review path) only supports multiple stores on the same Plus org, which doesn't fit recruiting independent non-Plus beta merchants — Public + unlisted (with review) looks like the realistic path instead. Added as an open question above.
