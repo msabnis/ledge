@@ -1,59 +1,44 @@
-# This file stores configurations for your Shopify app.
-# client_id, application_url, and name get filled in automatically the first
-# time you run `shopify app config link` against a real app in your Partner
-# dashboard — see README.md "First-time setup".
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = ""
+client_id = "00be994a9b15f596cb131dc427a862b4"
+name = "LedgerlyDev1.1"
+application_url = "https://shopify.dev/apps/default-app-home"
+embedded = true
 
-[access_scopes]
-# read_orders only returns orders from the last 60 days. Apply for
-# read_all_orders approval early (Partner Dashboard > app > API access,
-# it's a review form, not engineering work) then add it here once approved.
-# See PLAN.md Section 4, build order step 3.
-scopes = "read_orders"
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
 
 [webhooks]
-api_version = "2024-10"
+api_version = "2026-10"
 
-  # Handled by: /app/routes/webhooks.app.uninstalled.tsx
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
   [[webhooks.subscriptions]]
   uri = "/webhooks/app/uninstalled"
-  topics = ["app/uninstalled"]
-
-  # Handled by: /app/routes/webhooks.app.scopes_update.tsx
-  [[webhooks.subscriptions]]
-  topics = [ "app/scopes_update" ]
-  uri = "/webhooks/app/scopes_update"
-
-  # --- Core loop: live order sync (PLAN.md Section 4) ---
-  [[webhooks.subscriptions]]
-  topics = ["orders/create"]
-  uri = "/webhooks/orders/create"
+  topics = [ "app/uninstalled" ]
 
   [[webhooks.subscriptions]]
-  topics = ["orders/updated"]
-  uri = "/webhooks/orders/updated"
-
-  [[webhooks.subscriptions]]
-  topics = ["orders/cancelled"]
   uri = "/webhooks/orders/cancelled"
+  topics = [ "orders/cancelled" ]
 
   [[webhooks.subscriptions]]
-  topics = ["refunds/create"]
+  uri = "/webhooks/orders/create"
+  topics = [ "orders/create" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/orders/updated"
+  topics = [ "orders/updated" ]
+
+  [[webhooks.subscriptions]]
   uri = "/webhooks/refunds/create"
+  topics = [ "refunds/create" ]
 
-  # --- Mandatory compliance topics — required before any public App Store
-  # listing, NOT yet implemented. Needs real logic (export/delete customer
-  # data), not a stub. Add as a pre-launch checklist item.
-  # See https://shopify.dev/docs/apps/build/privacy-law-compliance
-  # [[webhooks.subscriptions]]
-  # uri = "/webhooks/customers/data_request"
-  # compliance_topics = ["customers/data_request"]
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_orders"
 
-  # [[webhooks.subscriptions]]
-  # uri = "/webhooks/customers/redact"
-  # compliance_topics = ["customers/redact"]
-
-  # [[webhooks.subscriptions]]
-  # uri = "/webhooks/shop/redact"
-  # compliance_topics = ["shop/redact"]
+[auth]
+redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
