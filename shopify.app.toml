@@ -1,44 +1,44 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-client_id = "00be994a9b15f596cb131dc427a862b4"
-name = "LedgerlyDev1.1"
-application_url = "https://shopify.dev/apps/default-app-home"
+client_id = "2c037b0b5d6e0f5215da0490d6109dc5"
+name = "LedgerlyDev1.2"
+application_url = "https://example.com"
 embedded = true
-
-[build]
-automatically_update_urls_on_dev = true
-include_config_on_deploy = true
 
 [webhooks]
 api_version = "2026-10"
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/app/scopes_update"
-  topics = [ "app/scopes_update" ]
-
-  [[webhooks.subscriptions]]
   uri = "/webhooks/app/uninstalled"
-  topics = [ "app/uninstalled" ]
+  topics = ["app/uninstalled"]
 
   [[webhooks.subscriptions]]
-  uri = "/webhooks/orders/cancelled"
-  topics = [ "orders/cancelled" ]
+  topics = [ "app/scopes_update" ]
+  uri = "/webhooks/app/scopes_update"
 
   [[webhooks.subscriptions]]
+  topics = ["orders/create"]
   uri = "/webhooks/orders/create"
-  topics = [ "orders/create" ]
 
   [[webhooks.subscriptions]]
+  topics = ["orders/updated"]
   uri = "/webhooks/orders/updated"
-  topics = [ "orders/updated" ]
 
   [[webhooks.subscriptions]]
+  topics = ["orders/cancelled"]
+  uri = "/webhooks/orders/cancelled"
+
+  [[webhooks.subscriptions]]
+  topics = ["refunds/create"]
   uri = "/webhooks/refunds/create"
-  topics = [ "refunds/create" ]
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_orders"
 
 [auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+redirect_urls = [ "https://example.com/api/auth" ]
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true
