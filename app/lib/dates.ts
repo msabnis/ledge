@@ -39,9 +39,14 @@ export function monthLabel(key: string): string {
   return MONTHS_LONG[parseInt(m) - 1].slice(0, 3) + " " + y;
 }
 
-export function fmtDateShort(d: Date | null): string {
-  if (!d) return "\u2014";
-  return d.getDate() + " " + MONTHS_LONG[d.getMonth()].slice(0, 3) + " " + d.getFullYear();
+export function fmtDateShort(d: Date | string | null): string {
+  if (!d) return "—";
+  // Prisma gives real Date objects server-side, but useLoaderData JSON-serializes
+  // loader data crossing to the browser, so by the time this runs in a component,
+  // `d` is often an ISO string, not a Date instance. Coerce defensively.
+  const date = d instanceof Date ? d : new Date(d);
+  if (isNaN(date.getTime())) return "—";
+  return date.getDate() + " " + MONTHS_LONG[date.getMonth()].slice(0, 3) + " " + date.getFullYear();
 }
 
 export function addMonths(date: Date, n: number): Date {

@@ -29,7 +29,7 @@ const ORDERS_QUERY = `#graphql
           createdAt
           processedAt
           cancelledAt
-          email
+          
           currencyCode
           subtotalPriceSet { shopMoney { amount } }
           totalShippingPriceSet { shopMoney { amount } }
@@ -62,7 +62,7 @@ function toRestShape(node: any) {
     created_at: node.createdAt,
     processed_at: node.processedAt,
     cancelled_at: node.cancelledAt,
-    email: node.email,
+ 
     currency: node.currencyCode,
     subtotal_price: node.subtotalPriceSet?.shopMoney?.amount,
     total_shipping_price_set: node.totalShippingPriceSet,
