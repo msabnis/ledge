@@ -10,11 +10,13 @@ import { backfillHistoricalOrders } from "../lib/backfill.server";
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
   const shop = session.shop;
-  const [settings, orderCount] = await Promise.all([
+  const [settings, orderCount, awCostCount, invoiceCount] = await Promise.all([
     db.shopSettings.upsert({ where: { shop }, create: { shop }, update: {} }),
     db.order.count({ where: { shop } }),
+    db.awOrderCost.count({ where: { shop } }),
+    db.supplierInvoice.count({ where: { shop } }),
   ]);
-  return { settings, orderCount };
+  return { settings, orderCount, awCostCount, invoiceCount };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -23,12 +25,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const body = await request.json();
 
   if (body.kind === "reset_and_resync") {
-    // AwOrderCost rows link to Order by internal id, not shopifyOrderId — those
-    // ids won't survive a delete+recreate, so unlink first rather than leave
-    // dangling references (the uploaded AW ledger data itself is untouched;
-    // only the Shopify-sourced order data gets wiped and re-fetched here).
-    await db.awOrderCost.updateMany({ where: { shop, orderId: { not: null } }, data: { orderId: null } });
-    await db.order.deleteMany({ where: { shop } }); // cascades to OrderLineItem
+    // Full wipe for a clean testing slate: AW ledger rows and invoice PDFs
+    // (deleted here, not just unlinked, per explicit request) plus every
+    // synced order — then a full re-fetch from Shopify. AwOrderCost is
+    // deleted before Order to avoid a foreign-key conflict (it references
+    // Order.id); SupplierInvoiceLineItem and OrderLineItem both cascade
+    // automatically from their parent deletes.
+    await db.awOrderCost.deleteMany({ where: { shop } });
+    await db.supplierInvoice.deleteMany({ where: { shop } });
+    await db.order.deleteMany({ where: { shop } });
     await db.shopSettings.update({ where: { shop }, data: { backfilledAt: null } });
     const count = await backfillHistoricalOrders(admin, db, shop);
     return { kind: "reset_and_resync" as const, orderCount: count };
@@ -46,7 +51,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Settings() {
-  const { settings, orderCount } = useLoaderData<typeof loader>();
+  const { settings, orderCount, awCostCount, invoiceCount } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const resetFetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
@@ -62,8 +67,9 @@ export default function Settings() {
 
   function handleResetAndResync() {
     const ok = window.confirm(
-      "This deletes every synced order in this app's database and re-fetches your full order history from Shopify. " +
-        "Your uploaded AW ledger/invoice data is not affected, but order-to-cost links will need to re-resolve. Continue?",
+      `This permanently deletes ${orderCount} synced order(s), ${awCostCount} AW ledger row(s), and ${invoiceCount} ` +
+        "AW invoice record(s) from this app's database, then re-fetches your full order history from Shopify. " +
+        "There's no undo — you'd need to re-upload your AW ledger/invoice files afterward. Continue?",
     );
     if (!ok) return;
     resetFetcher.submit({ kind: "reset_and_resync" }, { method: "post", encType: "application/json" });
@@ -71,7 +77,7 @@ export default function Settings() {
 
   useEffect(() => {
     if (resetFetcher.data?.kind === "reset_and_resync") {
-      shopify.toast.show(`Re-synced ${resetFetcher.data.orderCount} orders from Shopify`);
+      shopify.toast.show(`Reset complete — re-synced ${resetFetcher.data.orderCount} orders from Shopify`);
     }
   }, [resetFetcher.data, shopify]);
 
@@ -108,13 +114,14 @@ export default function Settings() {
               revisiting before this app is used outside your own beta testing.
             </Banner>
             <Text as="p" variant="bodySm" tone="subdued">
-              Currently {orderCount} order{orderCount === 1 ? "" : "s"} synced. This deletes them all from the app's
-              database and re-fetches your complete order history straight from Shopify — useful after testing
-              changes to the sync logic, or if the local data ever looks wrong. Your uploaded AW ledger and invoice
-              data is untouched.
+              Currently {orderCount} order{orderCount === 1 ? "" : "s"}, {awCostCount} AW ledger row
+              {awCostCount === 1 ? "" : "s"}, and {invoiceCount} AW invoice{invoiceCount === 1 ? "" : "s"} stored.
+              This is a full wipe for a clean testing slate — deletes all of it, then re-fetches order history from
+              Shopify. AW ledger/invoice data does <Text as="span" fontWeight="semibold">not</Text> come back
+              automatically; re-upload those files afterward if you need them.
             </Text>
             <Button tone="critical" onClick={handleResetAndResync} loading={resetFetcher.state !== "idle"}>
-              Reset orders &amp; re-sync from Shopify
+              Full reset &amp; re-sync from Shopify
             </Button>
           </BlockStack>
         </Card>
