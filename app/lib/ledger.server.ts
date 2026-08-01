@@ -1,16 +1,17 @@
 /**
  * Core financial engine — P&L, VAT, margin, KPIs.
- * Ported near-verbatim from the original Tatsatiti Ledger
- * (see /reference/tatsatiti-ledger-original.html, lines ~606-712).
+ * Originally ported from the original Tatsatiti Ledger; cost-side inputs were
+ * later switched from AW invoice PDFs to AW's bulk order-cost ledger export
+ * (AwOrderCost) as the primary source — see PLAN.md and prisma/schema.prisma.
  * Pure functions over arrays already fetched from Postgres via Prisma —
  * no DB calls in here, so this stays easy to unit test.
  */
 
 import { monthKey, monthLabel, type ResolvedRange, inRange } from "./dates";
 
-// Minimal shape this module needs — matches the Prisma `Order` / `SupplierInvoice`
-// models (see prisma/schema.prisma) without forcing a hard dependency on
-// generated Prisma types, so these functions stay easy to unit test with plain objects.
+// Minimal shape this module needs — matches the Prisma `Order` model (see
+// prisma/schema.prisma) without forcing a hard dependency on generated Prisma
+// types, so these functions stay easy to unit test with plain objects.
 export interface LedgerOrder {
   total: number;
   refundedAmount: number;
@@ -23,30 +24,37 @@ export interface LedgerOrder {
   email: string | null;
 }
 
-export interface LedgerInvoice {
-  type: string; // "invoice" | "refund"
+// Matches the Prisma `AwOrderCost` model — one row per AW order-ledger entry.
+export interface LedgerAwCost {
   total: number | null;
-  vat: number | null;
-  totalNet: number | null;
+  tax: number | null;
+  net: number | null;
   date: Date | null;
+  status: string | null;
 }
 
 export function getOrderDate(o: LedgerOrder): Date | null {
   return o.paidAt || o.createdAt;
 }
-export function getInvoiceDate(inv: LedgerInvoice): Date | null {
-  return inv.date;
+export function getAwCostDate(c: LedgerAwCost): Date | null {
+  return c.date;
 }
 
 export function activeOrders<T extends { cancelledAt: Date | null }>(orders: T[]): T[] {
   return orders.filter((o) => !o.cancelledAt);
 }
 
+/** Excludes AW ledger rows for orders AW itself cancelled — a cancelled
+ *  fulfillment never actually cost anything, so it shouldn't count as COGS. */
+export function activeAwCosts<T extends { status: string | null }>(costs: T[]): T[] {
+  return costs.filter((c) => (c.status || "").toLowerCase() !== "cancelled");
+}
+
 export function filterOrders(orders: LedgerOrder[], range: ResolvedRange): LedgerOrder[] {
   return orders.filter((o) => inRange(getOrderDate(o), range));
 }
-export function filterInvoices(invoices: LedgerInvoice[], range: ResolvedRange): LedgerInvoice[] {
-  return invoices.filter((i) => inRange(getInvoiceDate(i), range));
+export function filterAwCosts(costs: LedgerAwCost[], range: ResolvedRange): LedgerAwCost[] {
+  return costs.filter((c) => inRange(getAwCostDate(c), range));
 }
 
 export interface KPIs {
@@ -58,23 +66,21 @@ export interface KPIs {
   margin: number | null;
   inputVAT: number;
   uniqueCustomers: number;
-  invoiceCount: number;
-  refunds: number;
+  awCostRowCount: number;
 }
 
-export function computeKPIs(orders: LedgerOrder[], invoices: LedgerInvoice[], range: ResolvedRange): KPIs {
+export function computeKPIs(orders: LedgerOrder[], awCosts: LedgerAwCost[], range: ResolvedRange): KPIs {
   const ords = filterOrders(activeOrders(orders), range);
-  const invs = filterInvoices(invoices, range);
+  const costs = filterAwCosts(activeAwCosts(awCosts), range);
   const revenue = ords.reduce((s, o) => s + (o.total || 0) - (o.refundedAmount || 0), 0);
   const ordersCount = ords.length;
   const aov = ordersCount ? revenue / ordersCount : 0;
-  const cogs = invs.reduce((s, i) => s + (i.total || 0), 0);
+  const cogs = costs.reduce((s, c) => s + (c.total || 0), 0);
   const grossProfit = revenue - cogs;
   const margin = revenue ? (grossProfit / revenue) * 100 : null;
-  const inputVAT = invs.reduce((s, i) => s + (i.vat || 0), 0);
+  const inputVAT = costs.reduce((s, c) => s + (c.tax || 0), 0);
   const uniqueCustomers = new Set(ords.map((o) => (o.email || "").toLowerCase())).size;
-  const refunds = invs.filter((i) => i.type === "refund").reduce((s, i) => s + Math.abs(i.total || 0), 0);
-  return { revenue, ordersCount, aov, cogs, grossProfit, margin, inputVAT, uniqueCustomers, invoiceCount: invs.length, refunds };
+  return { revenue, ordersCount, aov, cogs, grossProfit, margin, inputVAT, uniqueCustomers, awCostRowCount: costs.length };
 }
 
 export interface MonthlyPoint {
@@ -86,7 +92,7 @@ export interface MonthlyPoint {
   profit: number;
 }
 
-export function monthlySeries(orders: LedgerOrder[], invoices: LedgerInvoice[]): MonthlyPoint[] {
+export function monthlySeries(orders: LedgerOrder[], awCosts: LedgerAwCost[]): MonthlyPoint[] {
   const map: Record<string, { revenue: number; cogs: number; orders: number }> = {};
   activeOrders(orders).forEach((o) => {
     const k = monthKey(getOrderDate(o));
@@ -94,10 +100,10 @@ export function monthlySeries(orders: LedgerOrder[], invoices: LedgerInvoice[]):
     map[k].revenue += (o.total || 0) - (o.refundedAmount || 0);
     map[k].orders += 1;
   });
-  invoices.forEach((inv) => {
-    const k = monthKey(getInvoiceDate(inv));
+  activeAwCosts(awCosts).forEach((c) => {
+    const k = monthKey(getAwCostDate(c));
     map[k] = map[k] || { revenue: 0, cogs: 0, orders: 0 };
-    map[k].cogs += inv.total || 0;
+    map[k].cogs += c.total || 0;
   });
   const keys = Object.keys(map).filter((k) => k !== "unknown").sort();
   return keys.map((k) => ({
@@ -117,18 +123,18 @@ export interface VATReturn {
   box6: number; // total value of sales excl. VAT
   box7: number; // total value of purchases excl. VAT
   orderCount: number;
-  invoiceCount: number;
+  awCostRowCount: number;
 }
 
-export function computeVATReturn(orders: LedgerOrder[], invoices: LedgerInvoice[], range: ResolvedRange): VATReturn {
+export function computeVATReturn(orders: LedgerOrder[], awCosts: LedgerAwCost[], range: ResolvedRange): VATReturn {
   const ords = filterOrders(activeOrders(orders), range);
-  const invs = filterInvoices(invoices, range);
+  const costs = filterAwCosts(activeAwCosts(awCosts), range);
   const outputVAT = ords.reduce((s, o) => s + (o.taxes || 0), 0);
-  const inputVAT = invs.reduce((s, i) => s + (i.vat || 0), 0);
+  const inputVAT = costs.reduce((s, c) => s + (c.tax || 0), 0);
   const netVATdue = outputVAT - inputVAT;
   const box6 = ords.reduce((s, o) => s + (o.subtotal || 0) + (o.shipping || 0), 0);
-  const box7 = invs.reduce((s, i) => s + (i.totalNet || 0), 0);
-  return { outputVAT, inputVAT, netVATdue, box6, box7, orderCount: ords.length, invoiceCount: invs.length };
+  const box7 = costs.reduce((s, c) => s + (c.net || 0), 0);
+  return { outputVAT, inputVAT, netVATdue, box6, box7, orderCount: ords.length, awCostRowCount: costs.length };
 }
 
 export interface PLRow {
@@ -146,14 +152,14 @@ export interface PL {
   marginPct: number | null;
   rows: PLRow[];
   orderCount: number;
-  invoiceCount: number;
+  awCostRowCount: number;
 }
 
-export function computePL(orders: LedgerOrder[], invoices: LedgerInvoice[], range: ResolvedRange): PL {
+export function computePL(orders: LedgerOrder[], awCosts: LedgerAwCost[], range: ResolvedRange): PL {
   const ords = filterOrders(activeOrders(orders), range);
-  const invs = filterInvoices(invoices, range);
+  const costs = filterAwCosts(activeAwCosts(awCosts), range);
   const revenue = ords.reduce((s, o) => s + (o.total || 0) - (o.refundedAmount || 0), 0);
-  const cogs = invs.reduce((s, i) => s + (i.total || 0), 0);
+  const cogs = costs.reduce((s, c) => s + (c.total || 0), 0);
   const grossProfit = revenue - cogs;
   const marginPct = revenue ? (grossProfit / revenue) * 100 : null;
 
@@ -163,15 +169,15 @@ export function computePL(orders: LedgerOrder[], invoices: LedgerInvoice[], rang
     monthMap[k] = monthMap[k] || { revenue: 0, cogs: 0 };
     monthMap[k].revenue += (o.total || 0) - (o.refundedAmount || 0);
   });
-  invs.forEach((i) => {
-    const k = monthKey(getInvoiceDate(i));
+  costs.forEach((c) => {
+    const k = monthKey(getAwCostDate(c));
     monthMap[k] = monthMap[k] || { revenue: 0, cogs: 0 };
-    monthMap[k].cogs += i.total || 0;
+    monthMap[k].cogs += c.total || 0;
   });
   const rows = Object.keys(monthMap)
     .filter((k) => k !== "unknown")
     .sort()
     .map((k) => ({ key: k, label: monthLabel(k), revenue: monthMap[k].revenue, cogs: monthMap[k].cogs, profit: monthMap[k].revenue - monthMap[k].cogs }));
 
-  return { revenue, cogs, grossProfit, marginPct, rows, orderCount: ords.length, invoiceCount: invs.length };
+  return { revenue, cogs, grossProfit, marginPct, rows, orderCount: ords.length, awCostRowCount: costs.length };
 }

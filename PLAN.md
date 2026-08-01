@@ -22,7 +22,8 @@ Turn the existing Tatsatiti Ledger (a single-company, browser-based bookkeeping 
 |---|---|---|
 | P&L / VAT / margin calculation functions | Keep, near-verbatim | Pure functions over order/invoice arrays — framework-agnostic |
 | Date/range helpers (`monthKey`, `fmtGBP`, FY logic, etc.) | Keep | Same reason |
-| AW invoice parser (`parseSupplierInvoiceText`) + pdf.js extraction | Keep, runs client-side | Extract text from uploaded PDF in-browser, POST parsed JSON to server. No server-side PDF library needed. Only ingestion path for now — harden with more sample invoices over time |
+| AW order ledger (CSV/xlsx export from AW portal) | **New primary cost source** | Structured, bulk, and carries a direct FulfillmentOrder GID back to the Shopify order — real per-order margin, not just aggregate P&L. See Section 4a |
+| AW invoice parser (`parseSupplierInvoiceText`) + pdf.js extraction | Keep, runs client-side, now optional | Demoted to supplementary: formal VAT invoice record + product-level SKU detail the ledger export doesn't carry. No longer summed into P&L/VAT totals, to avoid double-counting the same order's cost from two documents |
 | Dashboard / P&L / VAT / Sales / Purchases screen concepts | Keep as reference | Rebuild markup in Polaris, but layout/content carries over |
 | CSV order import (Papaparse) | Cut | Replaced by live Shopify order sync |
 | `window.storage` persistence | Cut | Replaced by Postgres, multi-tenant |
@@ -41,7 +42,8 @@ Turn the existing Tatsatiti Ledger (a single-company, browser-based bookkeeping 
 **In:**
 - Shopify OAuth install
 - Live order sync via webhooks (`orders/create`, `orders/updated`, `orders/cancelled`, `refunds/create`) + one-time historical backfill on install
-- AW invoice upload (PDF or paste-text, parsed client-side)
+- AW order ledger upload (CSV/xlsx, parsed client-side) — primary cost source, see 4a
+- AW invoice upload (PDF or paste-text, parsed client-side) — optional supplementary record, see 4a
 - Dashboard: revenue, AW cost, true margin, order count
 - P&L view
 - VAT view (output tax from sales, input tax from AW invoices, net position) — UK-specific for v1
@@ -54,10 +56,23 @@ Turn the existing Tatsatiti Ledger (a single-company, browser-based bookkeeping 
 shops(id, shopify_domain, access_token, installed_at, company_name, vat_number)
 orders(id, shop_id, shopify_order_id, name, status, paid_at, subtotal, shipping, taxes, total, currency)
 order_line_items(id, order_id, sku, name, qty, price, vendor)
+aw_order_costs(id, shop_id, reference, fulfillment_order_gid, order_id, client_name, date, status, goods, charges, shipping, net, tax, total, paid)
 supplier_invoices(id, shop_id, doc_number, type, date, total_net, vat, total, payment_state)
 supplier_invoice_line_items(id, invoice_id, code, desc, price, qty, amount)
 ```
-*(Stage 2 note: add a warehouse/origin-country field to `orders` and `supplier_invoices` ahead of EU work — see Section 5.)*
+*(Stage 2 note: add a warehouse/origin-country field to `orders` and `aw_order_costs` ahead of EU work — see Section 5.)*
+
+### 4a. AW cost ingestion — two paths, one source of truth
+
+Discovered while testing against real historical data (see 31 Jul changelog entry): AW's portal exports a bulk **order-level cost ledger** (CSV/xlsx), separate from the individual invoice PDFs. It's a better primary source than PDF parsing:
+
+- Structured rows — no PDF regex fragility
+- Each row's `Platform order` field is a Shopify **FulfillmentOrder GID**, resolvable via one GraphQL call to the actual `Order` — real per-order margin, not just an aggregate P&L number
+- Bulk export, not one-document-per-order
+
+So: **AW order ledger = primary cost source**, feeds P&L/VAT/Dashboard/Sales-page margin directly (`AwOrderCost` table). **AW invoice PDF = optional supplementary record** — kept for the formal invoice number (real VAT audit trail) and product-level SKU detail the ledger doesn't carry, but deliberately *not* summed into financial totals, to avoid double-counting the same order's cost from two uploaded documents.
+
+Known limitation: FulfillmentOrder → Order resolution needs a live GraphQL call per new reference (skipped on re-import once resolved). Fine at beta scale; worth batching if a merchant's ledger export gets into the thousands of rows.
 
 ### Target architecture
 
@@ -120,3 +135,4 @@ Upgrades to the existing Customer/BI tab concepts, not replacements:
 - **25 Jul 2026** — Initial plan drafted: strategy, Stage 1 MVP scope, Stage 2 roadmap (EU expansion, enhanced BI/CI)
 - **25 Jul 2026** — Scaffolded the real app on top of Shopify's official Remix template: Postgres/Prisma schema, order-sync + refund webhook handlers, one-time historical backfill (GraphQL Admin API), calculation engine + AW invoice parser ported from the original build, and all five Polaris screens (Dashboard, P&L, VAT, Sales, Purchases, Settings). `npm install`, `tsc --noEmit`, and `npm run build` verified clean. Not yet verified: `prisma generate`/`migrate` (needs real network access), live OAuth install, Railway deploy — see updated Build order checklist above.
 - **26 Jul 2026** — Added `SHOPIFY_SETUP.md` covering Shopify-side config end to end. Two findings worth flagging: (1) protected customer data access is a separate approval from scopes and gates order data on any real store, not just full-history access — needs applying for before beta, not after; (2) Shopify's Custom distribution (no-review path) only supports multiple stores on the same Plus org, which doesn't fit recruiting independent non-Plus beta merchants — Public + unlisted (with review) looks like the realistic path instead. Added as an open question above.
+- **31 Jul 2026** — Tested against real historical exports (Shopify order CSV, AW invoice PDFs, and an AW bulk order-cost ledger export). Matched 53/56 real orders across Shopify + AW data by customer name/date with zero manual work — validated the reconciliation concept end to end, and surfaced a genuine loss-making order in the sample. Discovered AW's order ledger export carries a direct FulfillmentOrder→Order GID link; rearchitected cost ingestion around it as the primary source (`AwOrderCost` table), with the PDF invoice parser demoted to an optional supplementary record. See Section 4a. Also unlocked real per-order margin on the Sales page, not just aggregate P&L. Schema/lib/routes updated and rebuilt clean; still needs a fresh `prisma migrate dev` locally for the new table.

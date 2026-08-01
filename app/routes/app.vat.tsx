@@ -17,13 +17,13 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const preset = (url.searchParams.get("range") as RangePreset) || "quarter";
   const range = resolveRange({ preset });
 
-  const [orders, invoices, settings] = await Promise.all([
+  const [orders, awCosts, settings] = await Promise.all([
     db.order.findMany({ where: { shop } }),
-    db.supplierInvoice.findMany({ where: { shop } }),
+    db.awOrderCost.findMany({ where: { shop } }),
     db.shopSettings.findUnique({ where: { shop } }),
   ]);
 
-  const vat = computeVATReturn(orders, invoices, range);
+  const vat = computeVATReturn(orders, awCosts, range);
   return { vat, preset, vatRegistered: settings?.vatRegistered ?? false };
 };
 

@@ -17,12 +17,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const preset = (url.searchParams.get("range") as RangePreset) || "fy";
   const range = resolveRange({ preset });
 
-  const [orders, invoices] = await Promise.all([
+  const [orders, awCosts] = await Promise.all([
     db.order.findMany({ where: { shop } }),
-    db.supplierInvoice.findMany({ where: { shop } }),
+    db.awOrderCost.findMany({ where: { shop } }),
   ]);
 
-  const pl = computePL(orders, invoices, range);
+  const pl = computePL(orders, awCosts, range);
   return { pl, preset };
 };
 

@@ -31,12 +31,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const preset = (url.searchParams.get("range") as RangePreset) || "month";
   const range = resolveRange({ preset });
 
-  const [orders, invoices] = await Promise.all([
+  const [orders, awCosts] = await Promise.all([
     db.order.findMany({ where: { shop } }),
-    db.supplierInvoice.findMany({ where: { shop } }),
+    db.awOrderCost.findMany({ where: { shop } }),
   ]);
 
-  const kpis = computeKPIs(orders, invoices, range);
+  const kpis = computeKPIs(orders, awCosts, range);
 
   return { kpis, preset, companyName: settings.companyName };
 };

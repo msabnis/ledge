@@ -61,7 +61,8 @@ model Order {
   refundedAmount Float     @default(0)
   currency       String    @default("GBP")
 
-  lineItems OrderLineItem[]
+  lineItems    OrderLineItem[]
+  awOrderCosts AwOrderCost[]
 
   @@unique([shop, shopifyOrderId])
   @@index([shop])
@@ -81,7 +82,47 @@ model OrderLineItem {
   @@index([orderId])
 }
 
-// --- AW supplier invoices, parsed client-side from PDF/pasted text ---
+// --- AW's own order-level cost ledger (bulk CSV/xlsx export from the AW portal).
+// This is the PRIMARY cost source feeding P&L/VAT/Dashboard — see PLAN.md.
+// `orderId` links to our own Order once the ledger row's FulfillmentOrder GID is
+// resolved via the Admin API (see app/lib/fulfillmentResolve.server.ts). A row can
+// be saved with orderId still null (e.g. uploaded before the order has synced from
+// Shopify yet) — it still counts toward aggregate totals; the link is only needed
+// for the per-order margin shown on the Sales page.
+model AwOrderCost {
+  id                  String    @id @default(cuid())
+  shop                String
+  reference           String // AW's own order reference, e.g. "AWD187818"
+  fulfillmentOrderGid String? // "gid://shopify/FulfillmentOrder/..." from the export
+  orderId             String?
+  order               Order?    @relation(fields: [orderId], references: [id])
+  clientName          String? // end customer name — kept as a fallback if GID resolution fails
+  date                DateTime?
+  status              String? // "In Warehouse" | "Dispatched" | "Cancelled" | ...
+  itemsCount          Int?
+  currency            String?
+  goods               Float?
+  charges             Float?
+  chargesDetail       String?
+  shipping            Float?
+  insurance           Float?
+  net                 Float?
+  tax                 Float?
+  total               Float?
+  paid                Float?
+  createdAt           DateTime  @default(now())
+
+  @@unique([shop, reference])
+  @@index([shop])
+  @@index([shop, date])
+  @@index([orderId])
+}
+
+// --- AW invoice PDFs — OPTIONAL supplementary record, not summed into P&L/VAT
+// totals (AwOrderCost above is the source of truth, to avoid double-counting the
+// same order's cost from two documents). Kept for two things AwOrderCost doesn't
+// have: the formal invoice number for a real VAT audit trail, and product-level
+// line items (SKU code, description) for future SKU-margin BI. See PLAN.md 5b.
 model SupplierInvoice {
   id                String    @id @default(cuid())
   shop              String

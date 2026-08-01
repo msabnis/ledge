@@ -4,7 +4,7 @@ import { Page, Card, DataTable, Text, EmptyState } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { fmtGBP } from "../lib/format";
+import { fmtGBP, fmtPct } from "../lib/format";
 import { fmtDateShort } from "../lib/dates";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -15,6 +15,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     where: { shop },
     orderBy: [{ paidAt: "desc" }, { createdAt: "desc" }],
     take: 100,
+    include: { awOrderCosts: true },
   });
 
   return { orders };
@@ -42,27 +43,39 @@ export default function Sales() {
     );
   }
 
-  const rows = orders.map((o) => [
-    o.name,
-    o.paidAt ? fmtDateShort(o.paidAt) : "\u2014",
-    o.cancelledAt ? "Cancelled" : o.status || "\u2014",
-    fmtGBP(o.total),
-    o.refundedAmount ? fmtGBP(o.refundedAmount) : "\u2014",
-    fmtGBP(o.total - (o.refundedAmount || 0)),
-  ]);
+  const rows = orders.map((o) => {
+    const net = o.total - (o.refundedAmount || 0);
+    // An order can in principle have more than one AW ledger row (split
+    // fulfillment); sum them for the order's total AW cost.
+    const awCost = o.awOrderCosts.reduce((s, c) => s + (c.total || 0), 0);
+    const hasCost = o.awOrderCosts.length > 0;
+    const margin = hasCost && net ? ((net - awCost) / net) * 100 : null;
+
+    return [
+      o.name,
+      o.paidAt ? fmtDateShort(o.paidAt) : "\u2014",
+      o.cancelledAt ? "Cancelled" : o.status || "\u2014",
+      fmtGBP(o.total),
+      o.refundedAmount ? fmtGBP(o.refundedAmount) : "\u2014",
+      fmtGBP(net),
+      hasCost ? fmtGBP(awCost) : "\u2014",
+      hasCost ? fmtPct(margin) : "pending AW ledger",
+    ];
+  });
 
   return (
     <Page>
       <TitleBar title="Sales" />
       <Card>
         <DataTable
-          columnContentTypes={["text", "text", "text", "numeric", "numeric", "numeric"]}
-          headings={["Order", "Paid", "Status", "Total", "Refunded", "Net"]}
+          columnContentTypes={["text", "text", "text", "numeric", "numeric", "numeric", "numeric", "numeric"]}
+          headings={["Order", "Paid", "Status", "Total", "Refunded", "Net", "AW cost", "Margin"]}
           rows={rows}
         />
       </Card>
       <Text as="p" variant="bodySm" tone="subdued">
-        Showing the most recent 100 orders.
+        Showing the most recent 100 orders. AW cost and margin appear once the matching row from an uploaded AW order
+        ledger has been linked to this order — upload one on the Purchases page.
       </Text>
     </Page>
   );
