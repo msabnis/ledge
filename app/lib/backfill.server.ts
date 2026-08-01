@@ -78,7 +78,7 @@ function toRestShape(node: any) {
   };
 }
 
-export async function backfillHistoricalOrders(admin: any, db: PrismaClient, shop: string) {
+export async function backfillHistoricalOrders(admin: any, db: PrismaClient, shop: string): Promise<number> {
   let cursor: string | null = null;
   let hasNextPage = true;
   let count = 0;
@@ -100,4 +100,5 @@ export async function backfillHistoricalOrders(admin: any, db: PrismaClient, sho
 
   await db.shopSettings.update({ where: { shop }, data: { backfilledAt: new Date() } });
   console.log(`Backfill complete for ${shop}: ${count} orders`);
+  return count;
 }
