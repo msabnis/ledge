@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ActionFunctionArgs, LoaderFunctionArgs } from "@remix-run/node";
 import { useFetcher, useLoaderData } from "@remix-run/react";
 import {
@@ -87,7 +87,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       });
       saved.push(row.reference);
     }
-    return { kind: "aw_ledger", saved, linked };
+    return { kind: "aw_ledger" as const, saved, linked };
   }
 
   // --- Optional: AW invoice PDF / pasted text ---
@@ -131,10 +131,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       }
       saved.push(invoice.docNumber);
     }
-    return { kind: "aw_invoice", saved };
+    return { kind: "aw_invoice" as const, saved };
   }
 
-  return { error: "Unknown submission kind" };
+  return { kind: "error" as const, error: "Unknown submission kind" };
 };
 
 export default function Purchases() {
@@ -142,6 +142,24 @@ export default function Purchases() {
   const ledgerFetcher = useFetcher<typeof action>();
   const invoiceFetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
+
+  useEffect(() => {
+    if (ledgerFetcher.data?.kind === "aw_ledger") {
+      const { saved, linked } = ledgerFetcher.data;
+      shopify.toast.show(`Saved ${saved.length} order${saved.length === 1 ? "" : "s"} (${linked} linked to a Shopify order)`);
+    } else if (ledgerFetcher.data?.kind === "error") {
+      shopify.toast.show(`Save failed: ${ledgerFetcher.data.error}`, { isError: true });
+    }
+  }, [ledgerFetcher.data, shopify]);
+
+  useEffect(() => {
+    if (invoiceFetcher.data?.kind === "aw_invoice") {
+      const { saved } = invoiceFetcher.data;
+      shopify.toast.show(`Saved ${saved.length} invoice document${saved.length === 1 ? "" : "s"}`);
+    } else if (invoiceFetcher.data?.kind === "error") {
+      shopify.toast.show(`Save failed: ${invoiceFetcher.data.error}`, { isError: true });
+    }
+  }, [invoiceFetcher.data, shopify]);
 
   // --- Primary: AW order ledger state ---
   const [ledgerRows, setLedgerRows] = useState<ParsedAwLedgerRow[]>([]);
@@ -162,10 +180,8 @@ export default function Purchases() {
   }
 
   function handleSaveLedger() {
-    ledgerFetcher.submit(ledgerRows as any, { method: "post", encType: "application/json" });
-    const count = ledgerRows.length;
+    ledgerFetcher.submit({ kind: "aw_ledger", rows: ledgerRows } as any, { method: "post", encType: "application/json" });
     setLedgerRows([]);
-    shopify.toast.show(`Saved ${count} order${count === 1 ? "" : "s"} from the AW ledger`);
   }
 
   // --- Optional: AW invoice PDF/paste state ---
@@ -199,10 +215,8 @@ export default function Purchases() {
   function handleSaveInvoices() {
     const payload = { kind: "aw_invoice", docs: parsedInvoices };
     invoiceFetcher.submit(payload as any, { method: "post", encType: "application/json" });
-    const count = parsedInvoices.length;
     setParsedInvoices([]);
     setPastedText("");
-    shopify.toast.show(`Saved ${count} invoice document${count === 1 ? "" : "s"}`);
   }
 
   const ledgerRowsPreview = ledgerRows.map((r) => [
