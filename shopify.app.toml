@@ -34,7 +34,11 @@ api_version = "2026-10"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_orders"
+# read_third_party_fulfillment_orders is needed to resolve a FulfillmentOrder GID
+# back to its parent order — AW Dropship fulfills as a third party, not the
+# merchant themselves, so that's the specific scope that applies here. Confirmed
+# via a live GraphiQL 403 that named this exact scope as required.
+scopes = "read_orders,read_third_party_fulfillment_orders"
 
 [auth]
 redirect_urls = [ "https://example.com/api/auth" ]
