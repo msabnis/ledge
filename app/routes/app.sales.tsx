@@ -4,7 +4,7 @@ import { Page, Card, DataTable, Text, EmptyState } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import db from "../db.server";
-import { fmtGBP, fmtPct } from "../lib/format";
+import { fmtMoney, fmtPct } from "../lib/format";
 import { fmtDateShort } from "../lib/dates";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -46,19 +46,23 @@ export default function Sales() {
   const rows = orders.map((o) => {
     const net = o.total - (o.refundedAmount || 0);
     // An order can in principle have more than one AW ledger row (split
-    // fulfillment); sum them for the order's total AW cost.
+    // fulfillment); sum them for the order's total AW cost. Uses the first
+    // cost row's currency for display — in practice these should always
+    // match the order's own currency, but summing genuinely mixed
+    // currencies isn't handled (see PLAN.md Stage 2, EU expansion).
     const awCost = o.awOrderCosts.reduce((s, c) => s + (c.total || 0), 0);
     const hasCost = o.awOrderCosts.length > 0;
+    const awCurrency = o.awOrderCosts[0]?.currency || o.currency;
     const margin = hasCost && net ? ((net - awCost) / net) * 100 : null;
 
     return [
       o.name,
       o.paidAt ? fmtDateShort(o.paidAt) : "\u2014",
       o.cancelledAt ? "Cancelled" : o.status || "\u2014",
-      fmtGBP(o.total),
-      o.refundedAmount ? fmtGBP(o.refundedAmount) : "\u2014",
-      fmtGBP(net),
-      hasCost ? fmtGBP(awCost) : "\u2014",
+      fmtMoney(o.total, o.currency),
+      o.refundedAmount ? fmtMoney(o.refundedAmount, o.currency) : "\u2014",
+      fmtMoney(net, o.currency),
+      hasCost ? fmtMoney(awCost, awCurrency) : "\u2014",
       hasCost ? fmtPct(margin) : "pending AW ledger",
     ];
   });

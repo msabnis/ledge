@@ -22,7 +22,7 @@ import { resolveFulfillmentOrderGid } from "../lib/fulfillmentResolve.server";
 import { extractPdfText } from "../lib/pdfExtract.client";
 import { parseSupplierInvoiceText, isFulfillmentCode, type ParsedInvoice } from "../lib/invoiceParser";
 import { parseDateLoose, fmtDateShort } from "../lib/dates";
-import { fmtGBP } from "../lib/format";
+import { fmtGBP, fmtMoney } from "../lib/format";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session } = await authenticate.admin(request);
@@ -224,7 +224,7 @@ export default function Purchases() {
     r.clientName || "\u2014",
     r.date || "\u2014",
     r.status || "\u2014",
-    r.total !== null ? fmtGBP(r.total) : "\u2014",
+    r.total !== null ? fmtMoney(r.total, r.currency) : "\u2014",
     r.fulfillmentOrderGid ? "will link" : "no order ref",
   ]);
 
@@ -233,7 +233,7 @@ export default function Purchases() {
     c.clientName || "\u2014",
     c.date ? fmtDateShort(c.date) : "\u2014",
     c.status || "\u2014",
-    c.total !== null ? fmtGBP(c.total) : "\u2014",
+    c.total !== null ? fmtMoney(c.total, c.currency) : "\u2014",
     c.orderId ? <Badge tone="success">Linked</Badge> : <Badge>Unlinked</Badge>,
   ]);
 

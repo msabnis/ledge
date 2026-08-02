@@ -38,6 +38,12 @@ model ShopSettings {
   companyName   String?
   vatRegistered Boolean   @default(false)
   vatNumber     String?
+  // Not used by any logic yet — capturing early so EU expansion (PLAN.md
+  // Section 5a) doesn't need a backfill once it's actually built. country
+  // is the merchant's home country (ISO 3166-1 alpha-2, e.g. "GB", "ES");
+  // homeCurrency is their base currency (ISO 4217, e.g. "GBP", "EUR").
+  country       String?
+  homeCurrency  String?
   backfilledAt  DateTime? // set once the one-time historical order backfill has run
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

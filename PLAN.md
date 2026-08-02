@@ -111,7 +111,7 @@ Key mechanics (current as of 2026):
 Proposed split:
 | Sub-stage | Scope | Notes |
 |---|---|---|
-| 2a — foundation | Multi-currency (EUR), shop-level home-country setting, generalized invoice parser for AW's Slovakia/Spain invoice formats, basic single-country VAT | Immediately useful to an EU merchant selling mostly domestically. Need real EU invoice samples before the parser is buildable — currently unknown/unconfirmed format |
+| 2a — foundation | Multi-currency (EUR), shop-level home-country setting, generalized invoice parser for AW's Slovakia/Spain invoice formats, basic single-country VAT | Immediately useful to an EU merchant selling mostly domestically. Need real EU invoice samples before the parser is buildable — currently unknown/unconfirmed format. Light groundwork already laid (1 Aug): money formatting is currency-aware everywhere real per-row currency data exists, and `ShopSettings` has nullable `country`/`homeCurrency` fields — no logic built on either yet, just avoids a backfill later |
 | 2b — cross-border VAT | OSS-aware calculation, warehouse-triggered registration flags, IOSS handling | Get a tax professional to review the logic before shipping — real financial/legal consequences for merchants if wrong |
 
 Data residency: Railway supports EU deployment regions if needed.
